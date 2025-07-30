@@ -20,7 +20,7 @@ const inputUserName = ref("")
 // 入室メッセージをクライアントに送信する
 const onEnter = () => {
   // ユーザー名が入力されているかチェック
-  if (inputUserName.value.trim() === "") {
+  if (inputUserName.value == "") {
     alert("ユーザー名を入力してください")
     return
   }
