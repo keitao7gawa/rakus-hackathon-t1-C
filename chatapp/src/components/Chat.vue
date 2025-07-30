@@ -24,33 +24,52 @@ onMounted(() => {
 // #region browser event handler
 // 投稿メッセージをサーバに送信する
 const onPublish = () => {
+	// 入力欄が空ならアラートを表示
+	if (chatContent.value === "") {
+		alert("投稿内容を入力してください");
+		return;
+	}
 	// 入力欄を初期化
+	const chatMessage = `${userName.value}さん: ${chatContent.value}`;
+	chatContent.value = "";
+
+	// 投稿メッセージをサーバに送信
+	socket.emit("publishEvent", chatMessage);
 };
 
 // 退室メッセージをサーバに送信する
-const onExit = () => {};
+const onExit = () => {
+	socket.emit("exitEvent", userName.value);
+};
 
 // メモを画面上に表示する
 const onMemo = () => {
 	// メモの内容を表示
+	const memo = "メモ: " + chatContent.value;
+	// メモの内容をチャットリストに追加
+	chatList.push(memo);
+
 	// 入力欄を初期化
+	chatContent.value = "";
 };
 // #endregion
 
 // #region socket event handler
 // サーバから受信した入室メッセージ画面上に表示する
 const onReceiveEnter = (data) => {
-	chatList.push();
+	const enterMessage = data + "さんが入室しました";
+	chatList.push(enterMessage);
 };
 
 // サーバから受信した退室メッセージを受け取り画面上に表示する
 const onReceiveExit = (data) => {
-	chatList.push();
+	const exitMessage = data + "さんが退出しました";
+	chatList.push(exitMessage);
 };
 
 // サーバから受信した投稿メッセージを画面上に表示する
 const onReceivePublish = (data) => {
-	chatList.push();
+	chatList.push(data);
 };
 // #endregion
 
@@ -58,13 +77,19 @@ const onReceivePublish = (data) => {
 // イベント登録をまとめる
 const registerSocketEvent = () => {
 	// 入室イベントを受け取ったら実行
-	socket.on("enterEvent", (data) => {});
+	socket.on("enterEvent", (data) => {
+		onReceiveEnter(data);
+	});
 
 	// 退室イベントを受け取ったら実行
-	socket.on("exitEvent", (data) => {});
+	socket.on("exitEvent", (data) => {
+		onReceiveExit(data);
+	});
 
 	// 投稿イベントを受け取ったら実行
-	socket.on("publishEvent", (data) => {});
+	socket.on("publishEvent", (data) => {
+		onReceivePublish(data);
+	});
 };
 // #endregion
 </script>
@@ -103,6 +128,7 @@ const registerSocketEvent = () => {
 				variant="outlined"
 				placeholder="投稿文を入力してください"
 				rows="4"
+				v-model="chatContent"
 				class="area"
 			></textarea>
 			<div class="bottun-wrapper">
