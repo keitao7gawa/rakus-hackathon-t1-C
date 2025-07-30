@@ -157,6 +157,7 @@ const registerSocketEvent = () => {
 	-moz-appearance: menulist;
 	-webkit-appearance: menulist;
 	border: 1px solid #000;
+	background-color: #ffffff;
 }
 .item {
 	display: block;
