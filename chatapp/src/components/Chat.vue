@@ -30,14 +30,12 @@ const onPublish = () => {
     return
   }
   // 入力欄を初期化
-  const context = chatContent.value
+  const chatMessage = `${userName.value}さん: ${chatContent.value}`
   chatContent.value = ""
 
-  const message = `${userName.value}さん: ${context}`
-
-  // 投稿メッセージをサーバに送信
-  socket.emit("publishEvent", message)
   
+  // 投稿メッセージをサーバに送信
+  socket.emit("publishEvent", chatMessage)
 
 }
 
