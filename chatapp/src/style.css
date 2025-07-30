@@ -1,10 +1,14 @@
 body {
-  padding: 2em;
+	background-color: #fbe8d6;
+	margin: 0 auto;
+	max-width: 500px;
+	padding: 2em;
+	width: 100%;
 }
 
 .button-normal {
-  border: 1px solid #555;
-  background-color: #eee;
-  border-radius: 4px;
-  padding: 4px;
+	border: 1px solid #555;
+	background-color: #d9e9e8;
+	border-radius: 4px;
+	padding: 4px;
 }
