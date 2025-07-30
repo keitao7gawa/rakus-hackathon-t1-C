@@ -27,6 +27,7 @@ const onEnter = () => {
   // 入室メッセージを送信
 
   // 全体で使用するnameに入力されたユーザー名を格納
+  userName.value = inputUserName.value
 
   // チャット画面へ遷移
   router.push({ name: "chat" })
