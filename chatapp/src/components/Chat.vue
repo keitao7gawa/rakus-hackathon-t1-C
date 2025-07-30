@@ -97,7 +97,7 @@ const registerSocketEvent = () => {
 <template>
 	<div class="mx-auto my-5 px-4">
 		<div class="header">
-			<p class="d-flex align-center mt-4 ml-4">{{ userName }}あああさん</p>
+			<p class="d-flex align-center mt-4 ml-4">{{ userName }}さん</p>
 			<div class="d-flex align-center mt-4">
 				<select class="select" name="messageType" id="message-type-select">
 					<option value="important">重要</option>
@@ -132,8 +132,8 @@ const registerSocketEvent = () => {
 				class="area"
 			></textarea>
 			<div class="bottun-wrapper">
-				<button class="mb-1 ml-3 button-normal">メモ</button>
-				<button class="mt-1 ml-3 button-normal">投稿</button>
+				<button @click="onMemo" class="mb-1 ml-3 button-normal">メモ</button>
+				<button @click="onPublish" class="mt-1 ml-3 button-normal">投稿</button>
 			</div>
 		</div>
 	</div>
@@ -157,9 +157,7 @@ const registerSocketEvent = () => {
 	left: 0;
 	padding: 15px 0;
 }
-.message-area {
-	/* height: 5000px; */
-}
+
 .bottun-wrapper {
 	display: flex;
 	flex-direction: column;
