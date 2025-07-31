@@ -224,7 +224,8 @@ const is_sort_reverse = ref(false)
 		<div class="header">
 			<p class="d-flex align-center mt-4 ml-4 mb-4">{{ userName }}さん</p>
 			<div class="d-flex align-center mt-4 mb-4">
-				<v-switch class="mt-5 mr-4" label="ソート" v-model="is_sort_reverse"></v-switch>
+				<v-switch color="#7CB5BE" hide-details="auto" class="mr-4" label="ソート"
+					v-model="is_sort_reverse"></v-switch>
 
 				<select class="select" name="messageType" id="message-type-select">
 					<option value="important">重要</option>
