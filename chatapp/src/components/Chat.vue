@@ -25,7 +25,7 @@ onMounted(() => {
 // 投稿メッセージをサーバに送信する
 const onPublish = () => {
 	// 入力欄が空ならアラートを表示
-	if (chatContent.value === "") {
+	if (chatContent.value.trim() === "") {
 		alert("投稿内容を入力してください");
 		return;
 	}
@@ -44,6 +44,11 @@ const onExit = () => {
 
 // メモを画面上に表示する
 const onMemo = () => {
+	// 空白のメモ内容はアラートを表示
+	if (chatContent.value.trim() === "") {
+		alert("メモ内容を入力してください");
+		return;
+	}
 	// メモの内容を表示
 	const memo = "メモ: " + chatContent.value;
 	// メモの内容をチャットリストに追加
@@ -51,6 +56,16 @@ const onMemo = () => {
 
 	// 入力欄を初期化
 	chatContent.value = "";
+};
+
+// 投稿メッセージ入力欄でEnterキーが押されたときの処理
+// Ctrl + Enter または Command + Enter で投稿
+const handleChatContentKeydown = (event) => {
+if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+	event.preventDefault(); // Enterキーのデフォルト動作を防ぐ
+	// 投稿メッセージをサーバに送信
+	onPublish();
+	}
 };
 // #endregion
 
@@ -130,6 +145,7 @@ const registerSocketEvent = () => {
 				rows="4"
 				v-model="chatContent"
 				class="area"
+				@keydown="handleChatContentKeydown"
 			></textarea>
 			<div class="bottun-wrapper">
 				<button @click="onMemo" class="mb-1 ml-3 button-normal">メモ</button>
@@ -185,8 +201,8 @@ const registerSocketEvent = () => {
 }
 .item {
 	display: block;
+	white-space: pre-wrap; 
 }
-
 .util-ml-8px {
 	margin-left: 8px;
 }
