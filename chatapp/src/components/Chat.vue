@@ -27,6 +27,7 @@ const currentChat = ref(null); // 編集中のチャットを保持
 const viewImportantStatus = ref(true);
 const selectedStatus = ref("all");
 const is_pin = ref(false);
+const is_scrolled = ref(false);
 // #endregion
 
 // #region lifecycle
@@ -246,16 +247,46 @@ watch(filteredChatList, async () => {
 const getChatClass = (chat) => {
 	if (chat.dataType === "memo") {
 		return "memo-bgcolor";
-	} 
-	else if (chat.dataType === "enter" || chat.dataType === "exit") {
+	} else if (chat.dataType === "enter" || chat.dataType === "exit") {
 		return "system-bgcolor";
-	} 
-	else if (chat.userName === userName.value){
+	} else if (chat.userName === userName.value) {
 		return "my-bgcolor";
 	} else {
 		return "other-bgcolor";
 	}
 };
+// 一番下までスクロールする関数
+const scrollDown = async () => {
+	await nextTick();
+	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+};
+
+onMounted(() => {
+	nextTick(() => {
+		console.log(bottomMarker);
+		console.log(bottomMarker.value);
+		const observer = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((entry) => {
+					if (entry.isIntersecting) {
+						// 画面に要素が入ったときの処理
+						is_scrolled.value = false;
+					} else {
+						// 画面から要素が出たときの処理
+						is_scrolled.value = true;
+					}
+				});
+			},
+			{
+				threshold: 1.0,
+			}
+		);
+		if (bottomMarker.value) {
+			observer.observe(bottomMarker.value);
+		}
+	});
+});
+
 // #endregion
 
 const is_sort_reverse = ref(false);
@@ -263,6 +294,7 @@ const is_sort_reverse = ref(false);
 
 <template>
 	<div class="mx-auto my-5 px-4">
+		<div v-if="is_scrolled" class="scroll-down" @click="scrollDown">↓</div>
 		<div class="header">
 			<p class="d-flex align-center pt-1 pl-1 pb-1 font-weight-bold">
 				{{ userName }}さん
@@ -303,53 +335,69 @@ const is_sort_reverse = ref(false);
 		</div>
 		<div class="message-area">
 			<div class="mt-5" v-if="filteredChatList.length !== 0">
-				<div 
+				<div
 					class="item mt-4 p-2"
-						v-for="chat in is_sort_reverse
+					v-for="chat in is_sort_reverse
 						? filteredChatList.slice().reverse()
 						: filteredChatList"
 					:key="chat.id"
-					:class="[chat.isPinned ? 'important-frame' : 'frame', getChatClass(chat)]"
+					:class="[
+						chat.isPinned ? 'important-frame' : 'frame',
+						getChatClass(chat),
+					]"
 				>
-					
 					<div v-if="chat.userName === userName" class="menu-container">
-						<button class="three-dot-leader" type="button" @click="isMenuInOpen = !isMenuInOpen; currentChat = chat.uid">
+						<button
+							class="three-dot-leader"
+							type="button"
+							@click="
+								isMenuInOpen = !isMenuInOpen;
+								currentChat = chat.uid;
+							"
+						>
 							<span class="dot"></span>
-						</button>				
-						<div v-if="isMenuInOpen && currentChat === chat.uid" class="mini-menu">
-								<button class="button-normal">編集</button>
-								<button @click="onDelete(chat.uid)" class="button-normal">削除</button>
-								<v-switch
-									hide-details="auto"
-									label="重要"
-									class="pin_font"
-									v-model="chat.isPinned"
-									color="#7CB5BE"
-									@click="() => console.log('重要なメッセージに設定しました')"
-								></v-switch>
+						</button>
+						<div
+							v-if="isMenuInOpen && currentChat === chat.uid"
+							class="mini-menu"
+						>
+							<button class="button-normal">編集</button>
+							<button @click="onDelete(chat.uid)" class="button-normal">
+								削除
+							</button>
+							<v-switch
+								hide-details="auto"
+								label="重要"
+								class="pin_font"
+								v-model="chat.isPinned"
+								color="#7CB5BE"
+								@click="() => console.log('重要なメッセージに設定しました')"
+							></v-switch>
 						</div>
 					</div>
-					
+
 					<div class="message-header">
 						<strong>
-						<template v-if="chat.dataType === 'message'"
-							>{{ chat.userName }} さん</template
-						>
-						<template
-							v-else-if="chat.dataType === 'enter' || chat.dataType === 'exit'"
-							>⚙️システム</template
-						>
-						<template v-else>📝メモ</template>
-					</strong>
-					<small class="util-ml-8px">{{ chat.publishTime }}</small>
+							<template v-if="chat.dataType === 'message'"
+								>{{ chat.userName }} さん</template
+							>
+							<template
+								v-else-if="
+									chat.dataType === 'enter' || chat.dataType === 'exit'
+								"
+								>⚙️システム</template
+							>
+							<template v-else>📝メモ</template>
+						</strong>
+						<small class="util-ml-8px">{{ chat.publishTime }}</small>
 					</div>
-					
+
 					<div class="message-content">
-							{{ chat.context }}
+						{{ chat.context }}
 					</div>
 				</div>
-				<div ref="bottomMarker"></div>
 			</div>
+			<div ref="bottomMarker"></div>
 		</div>
 		<div class="footer">
 			<textarea
@@ -401,6 +449,13 @@ const is_sort_reverse = ref(false);
 		top: 9px;
 		right: 0;
 	}
+	.scroll-down {
+		width: 60px;
+		height: 60px;
+		bottom: 160px;
+		right: 25px;
+		font-size: large;
+	}
 }
 @media screen and (max-width: 500px) {
 	.header {
@@ -413,6 +468,12 @@ const is_sort_reverse = ref(false);
 	.link {
 		top: 4px;
 		right: 0;
+	}
+	.scroll-down {
+		width: 33px;
+		height: 30px;
+		bottom: 160px;
+		right: 5px;
 	}
 }
 .footer {
@@ -476,26 +537,26 @@ const is_sort_reverse = ref(false);
 	margin-bottom: 10px;
 }
 
-.important-frame{
+.important-frame {
 	border: #7cb5be solid 4px;
 }
 
-.frame{
+.frame {
 	border: #000 solid 1px;
 }
 
-.my-bgcolor{
-	background-color: #D9E9E8;
+.my-bgcolor {
+	background-color: #d9e9e8;
 }
 
-.other-bgcolor{
+.other-bgcolor {
 	background-color: #fff;
 }
 .memo-bgcolor {
 	background-color: #d5d5d5;
 }
 .system-bgcolor {
-	background-color: #FBE8D6;
+	background-color: #fbe8d6;
 }
 
 .util-ml-8px {
@@ -531,8 +592,8 @@ const is_sort_reverse = ref(false);
 .three-dot-leader .dot,
 .three-dot-leader .dot::before,
 .three-dot-leader .dot::after {
-  display: block;
-  position: absolute;
+	display: block;
+	position: absolute;
 	border-radius: 50%;
 	width: 3px; /* ドットを少し大きく */
 	height: 3px;
@@ -545,38 +606,53 @@ const is_sort_reverse = ref(false);
 	transform: translate(-50%, -50%);
 }
 
-.three-dot-leader .dot::before, .three-dot-leader .dot::after {
-  content: '';
+.three-dot-leader .dot::before,
+.three-dot-leader .dot::after {
+	content: "";
 }
 
 .three-dot-leader .dot::before {
-  /* 上側ドットの位置 */
-  top: -6px;
+	/* 上側ドットの位置 */
+	top: -6px;
 }
 
 .three-dot-leader .dot::after {
-  /* 下側ドットの位置 */
-  top: 6px;
+	/* 下側ドットの位置 */
+	top: 6px;
 }
 
 .menu-container {
-	top : 100%; /* ボタンのすぐ下に表示 */
+	top: 100%; /* ボタンのすぐ下に表示 */
 	right: 0; /* 右端に配置 */
-	z-index: 2; 
+	z-index: 2;
 }
 
 .mini-menu {
-  position: absolute;
-  top: -10px;
-  right: -110px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background-color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  padding: 8px;
-  list-style: none;
-  margin-top: 4px;
+	position: absolute;
+	top: -10px;
+	right: -110px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	background-color: white;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	padding: 8px;
+	list-style: none;
+	margin-top: 4px;
 	display: flex;
 	flex-direction: column;
+}
+
+.scroll-down {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	position: fixed;
+	background-color: #d9e9e8;
+	border: 1px solid #000;
+	cursor: pointer;
+}
+.scroll-down:hover {
+	background-color: #7cb5be;
+	box-shadow: 3px 3px 3px #707070;
 }
 </style>
