@@ -1,6 +1,7 @@
 <script setup>
 import { inject, ref, reactive, onMounted } from "vue";
 import socketManager from "../socketManager.js";
+import { supabase } from '../lib/supabaseClient';
 
 // #region global state
 const userName = inject("userName");
@@ -17,8 +18,79 @@ const chatList = reactive([]);
 
 // #region lifecycle
 onMounted(() => {
+	// チャットリストを初期化
+	chatList.length = 0;
+	// データベースからメッセージを取得
+	fetchMessageTable();
+	// ソケットイベントを登録
 	registerSocketEvent();
 });
+
+// DBからメッセージを取得してchatListを更新する
+const fetchMessageTable = async () => {
+	try {
+		const { data, error} = await supabase
+			.from("MessageTable")
+			.select("*")
+			.order("publish_time", { ascending: true });
+		if (error) {
+			console.error("Error fetching messages:", error);
+			return;
+	}
+		// 取得したメッセージをchatListに追加
+		data.forEach((message) => {
+			if (message.data_type === "memo" && message.user_name !== userName.value) {
+				return; // 他人のメモはリストに追加しない
+			}
+			chatList.push({
+				context: message.context,
+				userName: message.user_name,
+				publishTime: new Date(message.publish_time).toLocaleString(),
+				dataType: message.data_type,
+				uid: message.uid,
+				isPinned: message.is_pinned
+			});
+		});
+	} catch (error) {
+		console.error("Error fetching messages:", error);
+	}
+}
+
+// MessageTableに insertするための関数
+const insertMessageTable = async (chat) => {
+	// 例: supabaseを使用
+	// supabase.from('MessageTable').insert(message).then(response => {
+	// 	if (response.error) {
+	// 		alert("メッセージの送信に失敗しました: " + response.error.message);
+	// 	}
+	// });
+
+	// データベースにメッセージを挿入する
+	try {
+		const { error } = await supabase
+			.from("MessageTable")
+			.insert({
+				context: chat.context,
+				user_name: chat.userName,
+				publish_time: chat.publishTime,
+				dataType: chat.dataType,
+				uid: chat.uid,
+				is_pinned: chat.isPinned
+			});
+	} catch (error) {
+		alert("メッセージの送信に失敗しました: " + error.message);
+		return;
+		
+	}
+};
+
+
+
+
+
+// メッセージをデータベース MessageTable から取得し， messagesTableを更新する
+
+
 // #endregion
 
 // #region browser event handler
@@ -30,11 +102,20 @@ const onPublish = () => {
 		return;
 	}
 	// 入力欄を初期化
-	const chatMessage = `${userName.value}さん: ${chatContent.value}`;
+	const newChat = {
+		context: chatContent.value,
+		userName: userName.value,
+		publishTime: new Date().toLocaleString(),
+		dataType: "message",
+		uid: crypto.randomUUID(),
+		isPinned: false
+	};
+	// メッセージをデータベースに挿入
+	insertMessageTable(newChat);
 	chatContent.value = "";
 
 	// 投稿メッセージをサーバに送信
-	socket.emit("publishEvent", chatMessage);
+	socket.emit("publishEvent", newChat);
 };
 
 // 退室メッセージをサーバに送信する
@@ -50,9 +131,18 @@ const onMemo = () => {
 		return;
 	}
 	// メモの内容を表示
-	const memo = "メモ: " + chatContent.value;
+	const newChat = {
+		context: chatContent.value,
+		userName: userName.value,
+		publishTime: new Date().toLocaleString(),
+		dataType: "memo",
+		uid: crypto.randomUUID(),
+		isPinned: false
+	};
+	// メモをデータベースに挿入
+	insertMessageTable(newChat);
 	// メモの内容をチャットリストに追加
-	chatList.push(memo);
+	chatList.push(newChat);
 
 	// 入力欄を初期化
 	chatContent.value = "";
@@ -73,13 +163,29 @@ if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
 // サーバから受信した入室メッセージ画面上に表示する
 const onReceiveEnter = (data) => {
 	const enterMessage = data + "さんが入室しました";
-	chatList.push(enterMessage);
+	const newChat = {
+		context: enterMessage,
+		userName: "System",
+		publishTime: new Date().toLocaleString(),
+		dataType: "enter",
+		uid: crypto.randomUUID(),
+		isPinned: false
+	};
+	chatList.push(newChat);
 };
 
 // サーバから受信した退室メッセージを受け取り画面上に表示する
 const onReceiveExit = (data) => {
 	const exitMessage = data + "さんが退出しました";
-	chatList.push(exitMessage);
+	const newChat = {
+		context: exitMessage,
+		userName: "System",
+		publishTime: new Date().toLocaleString(),
+		dataType: "exit",
+		uid: crypto.randomUUID(),
+		isPinned: false
+	};
+	chatList.push(newChat);
 };
 
 // サーバから受信した投稿メッセージを画面上に表示する
@@ -133,7 +239,14 @@ const registerSocketEvent = () => {
 			<div class="mt-5" v-if="chatList.length !== 0">
 				<ul>
 					<li class="item mt-4" v-for="(chat, i) in chatList" :key="i">
-						{{ chat }}
+						<strong>
+							<template v-if="chat.dataType === 'message'">{{ chat.userName }} さん</template>
+							<template v-else-if="chat.dataType === 'enter' || chat.dataType === 'exit'">⚙️システム</template>
+							<template v-else>📝メモ</template>
+						</strong>
+						<small class="util-ml-8px">{{ chat.publishTime }}</small>
+						<br>
+						{{ chat.context }}
 					</li>
 				</ul>
 			</div>
