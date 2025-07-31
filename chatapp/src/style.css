@@ -12,3 +12,8 @@ body {
 	border-radius: 4px;
 	padding: 4px;
 }
+
+.button-normal:hover{
+	background-color: #7CB5BE;
+	box-shadow: 3px 3px 3px #707070;
+}
