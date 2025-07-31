@@ -14,6 +14,7 @@ const socket = socketManager.getInstance();
 // #region reactive variable
 const chatContent = ref("");
 const chatList = reactive([]);
+const is_pin = ref(false);
 // #endregion
 
 // #region lifecycle
@@ -103,7 +104,7 @@ const onPublish = () => {
 		publishTime: new Date().toLocaleString(),
 		dataType: "message",
 		uid: crypto.randomUUID(),
-		isPinned: false,
+		isPinned: is_pin.value,
 	};
 	// メッセージをデータベースに挿入
 	insertMessageTable(newChat);
@@ -132,7 +133,7 @@ const onMemo = () => {
 		publishTime: new Date().toLocaleString(),
 		dataType: "memo",
 		uid: crypto.randomUUID(),
-		isPinned: false,
+		isPinned: is_pin.value,
 	};
 	// メモをデータベースに挿入
 	insertMessageTable(newChat);
@@ -269,12 +270,23 @@ watch(chatList, async () => {
 			<div class="bottun-wrapper">
 				<button @click="onMemo" class="mb-1 ml-3 button-normal">メモ</button>
 				<button @click="onPublish" class="mt-1 ml-3 button-normal">投稿</button>
+				<v-switch
+					hide-details="auto"
+					label="重要"
+					class="font"
+					v-model="is_pin"
+					color="#7CB5BE"
+				></v-switch>
 			</div>
 		</div>
 	</div>
 </template>
 
 <style scoped>
+.font {
+	color: #000000;
+	font-weight: bold;
+}
 .header {
 	display: flex;
 	justify-content: space-between;
@@ -304,6 +316,7 @@ watch(chatList, async () => {
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
+	margin-left: 4px;
 }
 .link {
 	text-decoration: none;
@@ -314,6 +327,7 @@ watch(chatList, async () => {
 	border: 1px solid #000;
 	background-color: #ffffff;
 	padding: 8px;
+	margin-right: 4px;
 }
 .select {
 	margin-right: 4px;
