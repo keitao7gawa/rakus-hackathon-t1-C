@@ -29,6 +29,8 @@ const selectedStatus = ref("all");
 const is_pin = ref(false);
 const editingChat = ref(null); // 編集中のチャットを保持
 const isEditing = ref(false); // 編集モードの状態を管理
+const ifFilterChange = ref(false); // フィルターが変更されたかどうかを管理
+const is_sort_reverse = ref(false); // ソートの状態を管理
 // #endregion
 
 // #region lifecycle
@@ -347,10 +349,16 @@ const registerSocketEvent = () => {
 };
 
 // 自動で下までスクロールする機能
+watch([selectedStatus, viewImportantStatus, is_sort_reverse], () =>{
+	ifFilterChange.value = true; // フィルターが変更された
+});
 const bottomMarker = ref(null);
 watch(filteredChatList, async () => {
-	await nextTick();
-	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+	if (ifFilterChange.value) {
+		await nextTick();
+		bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+		ifFilterChange.value = false; // フィルター変更後のスクロールが完了したのでリセット
+	}
 });
 
 const getChatClass = (chat) => {
@@ -368,7 +376,7 @@ const getChatClass = (chat) => {
 };
 // #endregion
 
-const is_sort_reverse = ref(false);
+
 </script>
 
 <template>
