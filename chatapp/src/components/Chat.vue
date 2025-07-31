@@ -18,8 +18,40 @@ const chatList = reactive([]);
 
 // #region lifecycle
 onMounted(() => {
+	// チャットリストを初期化
+	chatList.length = 0;
+	// データベースからメッセージを取得
+	fetchMessageTable();
+	// ソケットイベントを登録
 	registerSocketEvent();
 });
+// DBからメッセージを取得してchatListを更新する
+const fetchMessageTable = async () => {
+	try {
+		const { data, error} = await supabase
+			.from("MessageTable")
+			.select("*")
+			.order("publish_time", { ascending: true });
+		if (error) {
+			console.error("Error fetching messages:", error);
+			return;
+	}
+		// 取得したメッセージをchatListに追加
+		data.forEach((message) => {
+			chatList.push({
+				context: message.context,
+				userName: message.user_name,
+				publishTime: new Date(message.publish_time).toLocaleString(),
+				type: message.type,
+				uid: message.uid,
+				isPinned: message.is_pinned
+			});
+		});
+	} catch (error) {
+		console.error("Error fetching messages:", error);
+	}
+}
+
 // MessageTableに insertするための関数
 const insertMessageTable = async (chat) => {
 	// 例: supabaseを使用
@@ -50,6 +82,8 @@ const insertMessageTable = async (chat) => {
 
 
 
+
+
 // メッセージをデータベース MessageTable から取得し， messagesTableを更新する
 
 
@@ -74,12 +108,10 @@ const onPublish = () => {
 	};
 	// メッセージをデータベースに挿入
 	insertMessageTable(newChat);
-
-	const chatMessage = `${userName.value}さん: ${chatContent.value}`;
 	chatContent.value = "";
 
 	// 投稿メッセージをサーバに送信
-	socket.emit("publishEvent", chatMessage);
+	socket.emit("publishEvent", newChat);
 };
 
 // 退室メッセージをサーバに送信する
