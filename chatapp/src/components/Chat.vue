@@ -239,7 +239,7 @@ watch(filteredChatList, async () => {
 		<div class="header">
 			<p class="d-flex align-center mt-4 ml-4 mb-4">{{ userName }}さん</p>
 			<div class="d-flex align-center mt-4 mb-4">
-				<v-switch id="view-important" v-model="viewImportantStatus" label="重要" color="#7CB5BE"/>
+				<v-switch hide-details="auto" id="view-important" v-model="viewImportantStatus" label="重要" color="#7CB5BE"/>
 				<select class="select" name="messageType" id="message-type-select" v-model="selectedStatus">
 					<option value="all">全て</option>
 					<option value="message">投稿</option>
