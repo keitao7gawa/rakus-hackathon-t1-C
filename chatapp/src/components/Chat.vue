@@ -25,6 +25,17 @@ onMounted(() => {
 	// ソケットイベントを登録
 	registerSocketEvent();
 });
+
+const filterChatList = () => {
+    chatList.splice(0, chatList.length, ...chatList.filter(chat => {
+        // 他人のメモを除外
+        if (chat.dataType === "memo" && chat.userName !== userName.value) {
+            return false;
+        }
+        return true;
+    }));
+};
+
 // DBからメッセージを取得してchatListを更新する
 const fetchMessageTable = async () => {
 	try {
@@ -42,11 +53,12 @@ const fetchMessageTable = async () => {
 				context: message.context,
 				userName: message.user_name,
 				publishTime: new Date(message.publish_time).toLocaleString(),
-				type: message.type,
+				dataType: message.data_type,
 				uid: message.uid,
 				isPinned: message.is_pinned
 			});
 		});
+		filterChatList(); // 他人のメモを除外
 	} catch (error) {
 		console.error("Error fetching messages:", error);
 	}
@@ -69,7 +81,7 @@ const insertMessageTable = async (chat) => {
 				context: chat.context,
 				user_name: chat.userName,
 				publish_time: chat.publishTime,
-				type: chat.type,
+				dataType: chat.dataType,
 				uid: chat.uid,
 				is_pinned: chat.isPinned
 			});
@@ -102,7 +114,7 @@ const onPublish = () => {
 		context: chatContent.value,
 		userName: userName.value,
 		publishTime: new Date().toLocaleString(),
-		type: "message",
+		dataType: "message",
 		uid: crypto.randomUUID(),
 		isPinned: false
 	};
@@ -131,10 +143,12 @@ const onMemo = () => {
 		context: chatContent.value,
 		userName: userName.value,
 		publishTime: new Date().toLocaleString(),
-		type: "memo",
+		dataType: "memo",
 		uid: crypto.randomUUID(),
 		isPinned: false
 	};
+	// メモをデータベースに挿入
+	insertMessageTable(newChat);
 	// メモの内容をチャットリストに追加
 	chatList.push(newChat);
 
@@ -161,7 +175,7 @@ const onReceiveEnter = (data) => {
 		context: enterMessage,
 		userName: "System",
 		publishTime: new Date().toLocaleString(),
-		type: "enter",
+		dataType: "enter",
 		uid: crypto.randomUUID(),
 		isPinned: false
 	};
@@ -175,7 +189,7 @@ const onReceiveExit = (data) => {
 		context: exitMessage,
 		userName: "System",
 		publishTime: new Date().toLocaleString(),
-		type: "exit",
+		dataType: "exit",
 		uid: crypto.randomUUID(),
 		isPinned: false
 	};
@@ -233,10 +247,11 @@ const registerSocketEvent = () => {
 			<div class="mt-5" v-if="chatList.length !== 0">
 				<ul>
 					<li class="item mt-4" v-for="(chat, i) in chatList" :key="i">
-						<strong v-if="chat.type === 'message'">{{ chat.userName }} さん</strong>
-						<strong v-else-if="chat.type === 'memo'">メモ</strong>
-						<strong v-else-if="chat.type === 'enter'">システム</strong>
-						<strong v-else-if="chat.type === 'exit'">システム</strong>
+						<strong>
+							<template v-if="chat.dataType === 'message'">{{ chat.userName }} さん</template>
+							<template v-else-if="chat.dataType === 'enter' || chat.dataType === 'exit'">⚙️システム</template>
+							<template v-else>📝メモ</template>
+						</strong>
 						<small class="util-ml-8px">{{ chat.publishTime }}</small>
 						<br>
 						{{ chat.context }}
