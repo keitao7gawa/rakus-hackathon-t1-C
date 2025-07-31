@@ -57,6 +57,16 @@ const onMemo = () => {
 	// 入力欄を初期化
 	chatContent.value = "";
 };
+
+// 投稿メッセージ入力欄でEnterキーが押されたときの処理
+// Ctrl + Enter または Command + Enter で投稿
+const handleChatContentKeydown = (event) => {
+if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+	event.preventDefault(); // Enterキーのデフォルト動作を防ぐ
+	// 投稿メッセージをサーバに送信
+	onPublish();
+	}
+};
 // #endregion
 
 // #region socket event handler
@@ -135,6 +145,7 @@ const registerSocketEvent = () => {
 				rows="4"
 				v-model="chatContent"
 				class="area"
+				@keydown="handleChatContentKeydown"
 			></textarea>
 			<div class="bottun-wrapper">
 				<button @click="onMemo" class="mb-1 ml-3 button-normal">メモ</button>
