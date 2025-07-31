@@ -2,7 +2,6 @@
 import { inject, ref, reactive, onMounted, watch, nextTick, computed } from "vue";
 import socketManager from "../socketManager.js";
 import { supabase } from "../lib/supabaseClient";
-import socketManager from "../socketManager.js";
 
 // #region global state
 const userName = inject("userName");
