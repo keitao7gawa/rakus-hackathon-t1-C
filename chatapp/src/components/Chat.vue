@@ -1,5 +1,13 @@
 <script setup>
-import { inject, ref, reactive, onMounted, watch, nextTick } from "vue";
+import {
+	inject,
+	ref,
+	reactive,
+	onMounted,
+	watch,
+	nextTick,
+	computed,
+} from "vue";
 import socketManager from "../socketManager.js";
 import { supabase } from "../lib/supabaseClient";
 
@@ -14,6 +22,9 @@ const socket = socketManager.getInstance();
 // #region reactive variable
 const chatContent = ref("");
 const chatList = reactive([]);
+const viewImportantStatus = ref(true);
+const selectedStatus = ref("all");
+const is_pin = ref(false);
 // #endregion
 
 // #region lifecycle
@@ -83,10 +94,25 @@ const insertMessageTable = async (chat) => {
 		return;
 	}
 };
-
-// メッセージをデータベース MessageTable から取得し， messagesTableを更新する
-
 // #endregion
+
+const filteredChatList = computed(() => {
+	const tempChatList = chatList.filter((chat) => {
+		if (selectedStatus.value === "all") {
+			return true; // 全てのメッセージを表示
+		} else if (selectedStatus.value === "memo") {
+			return chat.dataType === "memo"; // メモのみ表示
+		} else if (selectedStatus.value === "message") {
+			return chat.dataType === "message"; // 投稿のみ表示
+		}
+		return false;
+	});
+	if (viewImportantStatus.value) {
+		return tempChatList.filter((chat) => chat.isPinned); // 重要なメッセージのみ表示
+	} else {
+		return tempChatList;
+	}
+});
 
 // #region browser event handler
 // 投稿メッセージをサーバに送信する
@@ -103,7 +129,7 @@ const onPublish = () => {
 		publishTime: new Date().toLocaleString(),
 		dataType: "message",
 		uid: crypto.randomUUID(),
-		isPinned: false,
+		isPinned: is_pin.value,
 	};
 	// メッセージをデータベースに挿入
 	insertMessageTable(newChat);
@@ -132,7 +158,7 @@ const onMemo = () => {
 		publishTime: new Date().toLocaleString(),
 		dataType: "memo",
 		uid: crypto.randomUUID(),
-		isPinned: false,
+		isPinned: is_pin.value,
 	};
 	// メモをデータベースに挿入
 	insertMessageTable(newChat);
@@ -210,36 +236,64 @@ const registerSocketEvent = () => {
 
 // 自動で下までスクロールする機能
 const bottomMarker = ref(null);
-watch(chatList, async () => {
+watch(filteredChatList, async () => {
 	await nextTick();
 	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
 });
 // #endregion
+
+const is_sort_reverse = ref(false);
 </script>
 
 <template>
 	<div class="mx-auto my-5 px-4">
 		<div class="header">
-			<p class="d-flex align-center mt-4 ml-4 mb-4">{{ userName }}さん</p>
-			<div class="d-flex align-center mt-4 mb-4">
-				<select class="select" name="messageType" id="message-type-select">
-					<option value="important">重要</option>
+			<p class="d-flex align-center pt-1 pl-1 pb-1 font-weight-bold">
+				{{ userName }}さん
+			</p>
+			<div class="d-flex align-center filter-wrapper">
+				<v-switch
+					color="#7CB5BE"
+					hide-details="auto"
+					class="mr-4"
+					label="ソート"
+					v-model="is_sort_reverse"
+				></v-switch>
+				<v-switch
+					hide-details="auto"
+					id="view-important"
+					class="mr-4"
+					v-model="viewImportantStatus"
+					label="重要"
+					color="#7CB5BE"
+				/>
+
+				<select
+					class="select"
+					name="messageType"
+					id="message-type-select"
+					v-model="selectedStatus"
+				>
 					<option value="all">全て</option>
+					<option value="message">投稿</option>
+					<option value="memo">メモ</option>
 				</select>
-				<router-link to="/" class="link">
-					<button
-						type="button"
-						class="button-normal button-exit"
-						@click="onExit"
-					>
-						退室する
-					</button>
-				</router-link>
 			</div>
+			<router-link to="/" class="link">
+				<button type="button" class="button-normal button-exit" @click="onExit">
+					退室
+				</button>
+			</router-link>
 		</div>
 		<div class="message-area">
-			<div class="mt-5" v-if="chatList.length !== 0">
-				<div class="item mt-4" v-for="(chat, i) in chatList" :key="i">
+			<div class="mt-5" v-if="filteredChatList.length !== 0">
+				<div
+					class="item mt-4"
+					v-for="chat in is_sort_reverse
+						? filteredChatList.slice().reverse()
+						: filteredChatList"
+					:key="chat.id"
+				>
 					<strong>
 						<template v-if="chat.dataType === 'message'"
 							>{{ chat.userName }} さん</template
@@ -269,21 +323,56 @@ watch(chatList, async () => {
 			<div class="bottun-wrapper">
 				<button @click="onMemo" class="mb-1 ml-3 button-normal">メモ</button>
 				<button @click="onPublish" class="mt-1 ml-3 button-normal">投稿</button>
+				<v-switch
+					hide-details="auto"
+					label="重要"
+					class="pin_font"
+					v-model="is_pin"
+					color="#7CB5BE"
+				></v-switch>
 			</div>
 		</div>
 	</div>
 </template>
 
 <style scoped>
+.pin_font {
+	color: #000000;
+	font-weight: bold;
+}
 .header {
 	display: flex;
 	justify-content: space-between;
 	width: 100%;
-	height: 50px;
 	position: fixed;
 	top: 0;
 	left: 0;
 	background-color: #ff9a07;
+}
+@media screen and (min-width: 500px) {
+	.header {
+		height: 50px;
+	}
+	.filter-wrapper {
+		margin-right: 80px;
+	}
+	.link {
+		top: 9px;
+		right: 0;
+	}
+}
+@media screen and (max-width: 500px) {
+	.header {
+		flex-direction: column;
+		height: 80px;
+	}
+	.filter-wrapper {
+		justify-content: center;
+	}
+	.link {
+		top: 4px;
+		right: 0;
+	}
 }
 .footer {
 	display: flex;
@@ -296,17 +385,22 @@ watch(chatList, async () => {
 	height: 150px;
 	background-color: #ff9a07;
 }
+
 .message-area {
 	margin: 50px 0 150px 0;
 }
+
 .bottun-wrapper {
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
+	margin-left: 4px;
 }
+
 .link {
 	text-decoration: none;
+	position: fixed;
 }
 
 .area {
@@ -314,7 +408,9 @@ watch(chatList, async () => {
 	border: 1px solid #000;
 	background-color: #ffffff;
 	padding: 8px;
+	margin-right: 4px;
 }
+
 .select {
 	margin-right: 4px;
 	font-size: 0.9rem;
@@ -324,10 +420,12 @@ watch(chatList, async () => {
 	border: 1px solid #000;
 	background-color: #ffffff;
 }
+
 .item {
 	display: block;
 	white-space: pre-wrap;
 }
+
 .util-ml-8px {
 	margin-left: 8px;
 }
