@@ -25,7 +25,7 @@ onMounted(() => {
 // 投稿メッセージをサーバに送信する
 const onPublish = () => {
 	// 入力欄が空ならアラートを表示
-	if (chatContent.value === "") {
+	if (chatContent.value.trim() === "") {
 		alert("投稿内容を入力してください");
 		return;
 	}
@@ -44,6 +44,11 @@ const onExit = () => {
 
 // メモを画面上に表示する
 const onMemo = () => {
+	// 空白のメモ内容はアラートを表示
+	if (chatContent.value.trim() === "") {
+		alert("メモ内容を入力してください");
+		return;
+	}
 	// メモの内容を表示
 	const memo = "メモ: " + chatContent.value;
 	// メモの内容をチャットリストに追加
