@@ -74,7 +74,7 @@ const insertMessageTable = async (chat) => {
 			context: chat.context,
 			user_name: chat.userName,
 			publish_time: chat.publishTime,
-			dataType: chat.dataType,
+			data_type: chat.dataType,
 			uid: chat.uid,
 			is_pinned: chat.isPinned,
 		});
