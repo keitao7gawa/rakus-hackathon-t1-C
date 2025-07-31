@@ -273,7 +273,7 @@ watch(chatList, async () => {
 				<v-switch
 					hide-details="auto"
 					label="重要"
-					class="font"
+					class="pin_font"
 					v-model="is_pin"
 					color="#7CB5BE"
 				></v-switch>
@@ -283,7 +283,7 @@ watch(chatList, async () => {
 </template>
 
 <style scoped>
-.font {
+.pin_font {
 	color: #000000;
 	font-weight: bold;
 }
