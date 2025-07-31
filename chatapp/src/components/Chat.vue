@@ -462,9 +462,9 @@ const is_sort_reverse = ref(false);
 							v-model="editingChat.context"
 							placeholder="編集内容を入力"
 							rows="2"
-							class="area"
+							class="edit-area"
 						></textarea>
-						<div class="bottun-wrapper">
+						<div class="edit-buttons">
 							<button @click="finishEditing" class="mb-1 ml-3 button-normal">更新</button>
 							<button @click="cancelEditing" class="mt-1 ml-3 button-normal">キャンセル</button>
 						</div>
@@ -575,7 +575,18 @@ const is_sort_reverse = ref(false);
 	padding: 8px;
 	margin-right: 4px;
 }
-
+.edit-area {
+	width: 90%;
+	border: 1px solid #000;
+	background-color: #ffffff;
+	padding: 8px;
+	margin-right: 4px;
+}
+.edit-buttons {
+	display: flex;
+	justify-content: center;
+	margin-top: 10px;
+}
 .select {
 	margin-right: 4px;
 	font-size: 0.9rem;
