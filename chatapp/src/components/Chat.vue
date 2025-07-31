@@ -27,6 +27,8 @@ const currentChat = ref(null); // 編集中のチャットを保持
 const viewImportantStatus = ref(true);
 const selectedStatus = ref("all");
 const is_pin = ref(false);
+const editingChat = ref(null); // 編集中のチャットを保持
+const isEditing = ref(false); // 編集モードの状態を管理
 const is_scrolled = ref(false);
 // #endregion
 
@@ -97,6 +99,41 @@ const insertMessageTable = async (chat) => {
 		return;
 	}
 };
+
+// MessageTableからdeleteするための関数
+const deleteMessageTable = async (uid) => {
+	try {
+		const { error } = await supabase
+			.from("MessageTable")
+			.delete() // レコード（行）を削除
+			.eq("uid", uid);
+	} catch (error) {
+		alert("メッセージの削除に失敗しました: " + error.message);
+		return;
+	}
+};
+
+// MessageTableのレコードを更新するための関数
+const updateMessageTable = async (chat) => {
+	try {
+		const { error } = await supabase
+			.from("MessageTable")
+			.update({
+				context: chat.context,
+				user_name: chat.userName,
+				publish_time: chat.publishTime,
+				data_type: chat.dataType,
+				is_pinned: chat.isPinned,
+			})
+			.eq("uid", chat.uid);
+		if (error) {
+			alert("メッセージの更新に失敗しました: " + error.message);
+		}
+	} catch (error) {
+		alert("メッセージの更新に失敗しました: " + error.message);
+	}
+};
+
 // #endregion
 
 const filteredChatList = computed(() => {
@@ -116,6 +153,39 @@ const filteredChatList = computed(() => {
 		return tempChatList;
 	}
 });
+// 編集を開始する関数
+const startEditing = (chat) => {
+	if (chat.dataType === "enter" || chat.userName !== userName.value) {
+		return;
+	}
+	editingChat.value = { ...chat }; // 編集用のチャットをコピー
+	isEditing.value = true; // 編集モードにする
+	isMenuInOpen.value = false; // メニューを閉じる
+};
+
+// 編集を完了する関数
+const finishEditing = () => {
+	if (!editingChat.value) return; // 編集中のチャットがない場合は何もしない
+	// 編集内容をデータベースに更新
+	const originalChat = chatList.find(
+		(chat) => chat.uid === editingChat.value.uid
+	);
+	if (originalChat) {
+		originalChat.context = editingChat.value.context + " (編集済み)";
+		originalChat.isPinned = editingChat.value.isPinned;
+		updateMessageTable(originalChat);
+
+		socket.emit("updateEvent", originalChat); // 更新イベントをサーバに送信
+	}
+	editingChat.value = null; // 編集を終了
+	isEditing.value = false; // 編集モードを終了
+};
+
+const cancelEditing = () => {
+	editingChat.value = null; // 編集中のチャットをリセット
+	isEditing.value = false; // 編集モードを終了
+	isMenuInOpen.value = false; // メニューを閉じる
+};
 
 // #region browser event handler
 // 投稿メッセージをサーバに送信する
@@ -145,6 +215,16 @@ const onPublish = () => {
 // 退室メッセージをサーバに送信する
 const onExit = () => {
 	socket.emit("exitEvent", userName.value);
+};
+
+// 削除したことをサーバーに送信する
+const onDelete = (uid, name) => {
+	// uidによって削除する処理を以下で行う
+	if (name !== userName.value) return;
+	console.log("onDelete");
+
+	socket.emit("deleteEvent", uid);
+	deleteMessageTable(uid);
 };
 
 // メモを画面上に表示する
@@ -216,6 +296,24 @@ const onReceiveExit = (data) => {
 const onReceivePublish = (data) => {
 	chatList.push(data);
 };
+
+// サーバーから受信した削除通知を受け取り、メッセージなどを削除する
+const onReceiveDelete = (uid) => {
+	// chatListを走査して、uidが一致したものを削除する処理
+
+	const indexToDelete = chatList.findIndex((chat) => chat.uid === uid);
+
+	if (indexToDelete !== -1) {
+		chatList.splice(indexToDelete, 1);
+	}
+};
+
+const onReceiveUpdate = (data) => {
+	const chatToUpdate = chatList.find((chat) => chat.uid === data.uid);
+	if (chatToUpdate) {
+		chatToUpdate.context = data.context;
+	}
+};
 // #endregion
 
 // #region local methods
@@ -234,6 +332,15 @@ const registerSocketEvent = () => {
 	// 投稿イベントを受け取ったら実行
 	socket.on("publishEvent", (data) => {
 		onReceivePublish(data);
+	});
+
+	// 削除イベントを受け取ったら実行
+	socket.on("deleteEvent", (uid) => {
+		onReceiveDelete(uid);
+	});
+
+	socket.on("updateEvent", (data) => {
+		onReceiveUpdate(data);
 	});
 };
 
@@ -263,8 +370,6 @@ const scrollDown = async () => {
 
 onMounted(() => {
 	nextTick(() => {
-		console.log(bottomMarker);
-		console.log(bottomMarker.value);
 		const observer = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((entry) => {
@@ -361,8 +466,13 @@ const is_sort_reverse = ref(false);
 							v-if="isMenuInOpen && currentChat === chat.uid"
 							class="mini-menu"
 						>
-							<button class="button-normal">編集</button>
-							<button @click="onDelete(chat.uid)" class="button-normal">
+							<button @click="startEditing(chat)" class="button-normal">
+								編集
+							</button>
+							<button
+								@click="onDelete(chat.uid, chat.userName)"
+								class="button-normal"
+							>
 								削除
 							</button>
 							<v-switch
@@ -394,6 +504,25 @@ const is_sort_reverse = ref(false);
 
 					<div class="message-content">
 						{{ chat.context }}
+					</div>
+					<div
+						v-if="isEditing && editingChat?.uid === chat.uid"
+						class="edit-area"
+					>
+						<textarea
+							v-model="editingChat.context"
+							placeholder="編集内容を入力"
+							rows="2"
+							class="area"
+						></textarea>
+						<div class="bottun-wrapper">
+							<button @click="finishEditing" class="mb-1 ml-3 button-normal">
+								更新
+							</button>
+							<button @click="cancelEditing" class="mt-1 ml-3 button-normal">
+								キャンセル
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>

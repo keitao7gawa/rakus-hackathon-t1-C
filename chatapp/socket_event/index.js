@@ -13,4 +13,14 @@ export default (io, socket) => {
   socket.on("publishEvent", (data) => {
     io.sockets.emit("publishEvent", data)
   })
+
+  // 削除通知を送信する
+  socket.on("deleteEvent", (uid) => {
+    io.sockets.emit("deleteEvent", uid)
+  })
+
+  // 更新通知を送信する
+  socket.on("updateEvent", (data) => {
+    io.sockets.emit("updateEvent", data)
+  })
 }
