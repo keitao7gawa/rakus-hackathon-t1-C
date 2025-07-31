@@ -96,6 +96,20 @@ const insertMessageTable = async (chat) => {
 		return;
 	}
 };
+
+// MessageTableからdeleteするための関数
+const deleteMessageTable = async (uid) => {
+	try {
+		const { error } = await supabase
+		.from("MessageTable")
+		.delete() // レコード（行）を削除
+		.eq('uid', uid)
+	} catch(error) {
+		alert("メッセージの削除に失敗しました: " + error.message);
+		return;
+	}
+}
+
 // #endregion
 
 const filteredChatList = computed(() => {
@@ -145,6 +159,15 @@ const onPublish = () => {
 const onExit = () => {
 	socket.emit("exitEvent", userName.value);
 };
+
+// 削除したことをサーバーに送信する
+const onDelete = (uid, name) => { // uidによって削除する処理を以下で行う
+	if (name !== userName.value) return;
+	console.log("onDelete");
+
+	socket.emit("deleteEvent", uid);
+	deleteMessageTable(uid);
+}
 
 // メモを画面上に表示する
 const onMemo = () => {
@@ -215,6 +238,17 @@ const onReceiveExit = (data) => {
 const onReceivePublish = (data) => {
 	chatList.push(data);
 };
+
+// サーバーから受信した削除通知を受け取り、メッセージなどを削除する
+const onReceiveDelete = (uid) => {
+	// chatListを走査して、uidが一致したものを削除する処理
+
+	const indexToDelete = chatList.findIndex(chat => chat.uid === uid);
+
+	if (indexToDelete !== -1) {
+        chatList.splice(indexToDelete, 1);
+    }
+}
 // #endregion
 
 // #region local methods
@@ -234,6 +268,11 @@ const registerSocketEvent = () => {
 	socket.on("publishEvent", (data) => {
 		onReceivePublish(data);
 	});
+
+	// 削除イベントを受け取ったら実行
+	socket.on("deleteEvent", (uid) => {
+		onReceiveDelete(uid);
+	})
 };
 
 // 自動で下までスクロールする機能
@@ -318,7 +357,7 @@ const is_sort_reverse = ref(false);
 						</button>				
 						<div v-if="isMenuInOpen && currentChat === chat.uid" class="mini-menu">
 								<button class="button-normal">編集</button>
-								<button @click="onDelete(chat.uid)" class="button-normal">削除</button>
+								<button @click="onDelete(chat.uid, chat.userName)" class="button-normal">削除</button>
 								<v-switch
 									hide-details="auto"
 									label="重要"
