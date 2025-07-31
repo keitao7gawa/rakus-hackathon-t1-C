@@ -27,6 +27,8 @@ const currentChat = ref(null); // 編集中のチャットを保持
 const viewImportantStatus = ref(true);
 const selectedStatus = ref("all");
 const is_pin = ref(false);
+const editingChat = ref(null); // 編集中のチャットを保持
+const isEditing = ref(false); // 編集モードの状態を管理
 // #endregion
 
 // #region lifecycle
@@ -110,6 +112,27 @@ const deleteMessageTable = async (uid) => {
 	}
 }
 
+// MessageTableのレコードを更新するための関数
+const updateMessageTable = async (chat) => {
+	try {
+		const { error } = await supabase
+			.from("MessageTable")
+			.update({
+				context: chat.context,
+				user_name: chat.userName,
+				publish_time: chat.publishTime,
+				data_type: chat.dataType,
+				is_pinned: chat.isPinned,
+			})
+			.eq("uid", chat.uid);
+		if (error) {
+			alert("メッセージの更新に失敗しました: " + error.message);
+		}
+	} catch (error) {
+		alert("メッセージの更新に失敗しました: " + error.message);
+	}
+};
+
 // #endregion
 
 const filteredChatList = computed(() => {
@@ -129,6 +152,37 @@ const filteredChatList = computed(() => {
 		return tempChatList;
 	}
 });
+// 編集を開始する関数
+const startEditing = (chat) => {
+	if (chat.dataType === "enter" || chat.userName !== userName.value) {
+		return;
+	}
+	editingChat.value = { ...chat }; // 編集用のチャットをコピー
+	isEditing.value = true; // 編集モードにする
+	isMenuInOpen.value = false; // メニューを閉じる
+};
+
+// 編集を完了する関数
+const finishEditing = () => {
+	if (!editingChat.value) return; // 編集中のチャットがない場合は何もしない
+	// 編集内容をデータベースに更新
+	const originalChat = chatList.find(chat => chat.uid === editingChat.value.uid);
+	if (originalChat) {
+		originalChat.context = editingChat.value.context + " (編集済み)";
+		originalChat.isPinned = editingChat.value.isPinned;
+		updateMessageTable(originalChat);
+
+		socket.emit("updateEvent", originalChat); // 更新イベントをサーバに送信
+	}
+	editingChat.value = null; // 編集を終了
+	isEditing.value = false; // 編集モードを終了
+};
+
+const cancelEditing = () => {
+	editingChat.value = null; // 編集中のチャットをリセット
+	isEditing.value = false; // 編集モードを終了
+	isMenuInOpen.value = false; // メニューを閉じる
+};
 
 // #region browser event handler
 // 投稿メッセージをサーバに送信する
@@ -168,6 +222,7 @@ const onDelete = (uid, name) => { // uidによって削除する処理を以下�
 	socket.emit("deleteEvent", uid);
 	deleteMessageTable(uid);
 }
+
 
 // メモを画面上に表示する
 const onMemo = () => {
@@ -249,6 +304,13 @@ const onReceiveDelete = (uid) => {
         chatList.splice(indexToDelete, 1);
     }
 }
+
+const onReceiveUpdate = (data) => {
+	const chatToUpdate = chatList.find(chat => chat.uid === data.uid);
+	if (chatToUpdate) {
+		chatToUpdate.context = data.context;
+	}
+};
 // #endregion
 
 // #region local methods
@@ -273,6 +335,10 @@ const registerSocketEvent = () => {
 	socket.on("deleteEvent", (uid) => {
 		onReceiveDelete(uid);
 	})
+
+	socket.on("updateEvent", (data) => {
+		onReceiveUpdate(data);
+	});
 };
 
 // 自動で下までスクロールする機能
@@ -356,7 +422,7 @@ const is_sort_reverse = ref(false);
 							<span class="dot"></span>
 						</button>				
 						<div v-if="isMenuInOpen && currentChat === chat.uid" class="mini-menu">
-								<button class="button-normal">編集</button>
+								<button @click="startEditing(chat)"class="button-normal">編集</button>
 								<button @click="onDelete(chat.uid, chat.userName)" class="button-normal">削除</button>
 								<v-switch
 									hide-details="auto"
@@ -386,6 +452,19 @@ const is_sort_reverse = ref(false);
 					<div class="message-content">
 							{{ chat.context }}
 					</div>
+					<div v-if="isEditing && editingChat?.uid === chat.uid" class="edit-area">
+						<textarea
+							v-model="editingChat.context"
+							placeholder="編集内容を入力"
+							rows="2"
+							class="area"
+						></textarea>
+						<div class="bottun-wrapper">
+							<button @click="finishEditing" class="mb-1 ml-3 button-normal">更新</button>
+							<button @click="cancelEditing" class="mt-1 ml-3 button-normal">キャンセル</button>
+						</div>
+					</div>
+					<div ref="bottomMarker"></div>
 				</div>
 				<div ref="bottomMarker"></div>
 			</div>
