@@ -26,16 +26,6 @@ onMounted(() => {
 	registerSocketEvent();
 });
 
-const filterChatList = () => {
-    chatList.splice(0, chatList.length, ...chatList.filter(chat => {
-        // 他人のメモを除外
-        if (chat.dataType === "memo" && chat.userName !== userName.value) {
-            return false;
-        }
-        return true;
-    }));
-};
-
 // DBからメッセージを取得してchatListを更新する
 const fetchMessageTable = async () => {
 	try {
@@ -49,6 +39,9 @@ const fetchMessageTable = async () => {
 	}
 		// 取得したメッセージをchatListに追加
 		data.forEach((message) => {
+			if (message.data_type === "memo" && message.user_name !== userName.value) {
+				return; // 他人のメモはリストに追加しない
+			}
 			chatList.push({
 				context: message.context,
 				userName: message.user_name,
@@ -58,7 +51,6 @@ const fetchMessageTable = async () => {
 				isPinned: message.is_pinned
 			});
 		});
-		filterChatList(); // 他人のメモを除外
 	} catch (error) {
 		console.error("Error fetching messages:", error);
 	}
