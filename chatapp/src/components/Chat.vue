@@ -24,6 +24,9 @@ onMounted(() => {
 	fetchMessageTable();
 	// ソケットイベントを登録
 	registerSocketEvent();
+
+	//デバッグ用に削除イベントを実行
+	onDelete('0793cfea-fd86-45d3-8ba0-a03b26f670de');
 });
 
 // DBからメッセージを取得してchatListを更新する
@@ -84,6 +87,19 @@ const insertMessageTable = async (chat) => {
 	}
 };
 
+// MessageTableからdeleteするための関数
+const deleteMessageTable = async (uid) => {
+	try {
+		const { error } = await supabase
+		.from("MessageTable")
+		.delete() // レコード（行）を削除
+		.eq('uid', uid)
+	} catch(error) {
+		alert("メッセージの削除に失敗しました: " + error.message);
+		return;
+	}
+}
+
 // メッセージをデータベース MessageTable から取得し， messagesTableを更新する
 
 // #endregion
@@ -113,7 +129,13 @@ const onPublish = () => {
 	socket.emit("publishEvent", newChat);
 };
 
-// 退室メッセージをサーバに送信する
+// 削除したことをサーバーに送信する
+const onDelete = (uid) => { // uidによって削除する処理を以下で行う
+	socket.emit("deleteEvent", uid);
+	deleteMessageTable(uid);
+}
+
+// 退室メッセージをサーバに送信する（削除ボタンを設定する）
 const onExit = () => {
 	socket.emit("exitEvent", userName.value);
 };
@@ -189,6 +211,16 @@ const onReceivePublish = (data) => {
 };
 // #endregion
 
+// サーバーから受信した削除通知を受け取り、メッセージなどを削除する
+const onReceiveDelete = (uid) => {
+	// chatListを走査して、uidが一致したものを削除する処理
+	chatList.forEach(chat => {
+		if (chat.uid === uid) {
+			console.log(uid);
+		}
+	});
+}
+
 // #region local methods
 // イベント登録をまとめる
 const registerSocketEvent = () => {
@@ -206,6 +238,11 @@ const registerSocketEvent = () => {
 	socket.on("publishEvent", (data) => {
 		onReceivePublish(data);
 	});
+
+	// 削除イベントを受け取ったら実行
+	socket.on("deleteEvent", (uid) => {
+		onReceiveDelete(uid);
+	})
 };
 
 // 自動で下までスクロールする機能
