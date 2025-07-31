@@ -1,5 +1,5 @@
 <script setup>
-import { inject, ref, reactive, onMounted, watch, nextTick } from "vue";
+import { inject, ref, reactive, onMounted, watch, nextTick, computed } from "vue";
 import socketManager from "../socketManager.js";
 import { supabase } from "../lib/supabaseClient";
 
@@ -14,6 +14,8 @@ const socket = socketManager.getInstance();
 // #region reactive variable
 const chatContent = ref("");
 const chatList = reactive([]);
+const viewImportantStatus = ref(true);
+const selectedStatus = ref("all"); 
 // #endregion
 
 // #region lifecycle
@@ -83,10 +85,25 @@ const insertMessageTable = async (chat) => {
 		return;
 	}
 };
-
-// メッセージをデータベース MessageTable から取得し， messagesTableを更新する
-
 // #endregion
+
+const filteredChatList = computed(() => {
+	const tempChatList = chatList.filter((chat) => {
+		if (selectedStatus.value === "all") {
+			return true; // 全てのメッセージを表示
+		} else if (selectedStatus.value === "memo") {
+			return chat.dataType === "memo"; // メモのみ表示
+		} else if (selectedStatus.value === "message") {
+			return chat.dataType === "message"; // 投稿のみ表示
+		}
+		return false;
+	});
+	if (viewImportantStatus.value) {
+		return tempChatList.filter((chat) => chat.isPinned); // 重要なメッセージのみ表示
+	} else {
+		return tempChatList; 
+	}
+});
 
 // #region browser event handler
 // 投稿メッセージをサーバに送信する
@@ -210,7 +227,7 @@ const registerSocketEvent = () => {
 
 // 自動で下までスクロールする機能
 const bottomMarker = ref(null);
-watch(chatList, async () => {
+watch(filteredChatList, async () => {
 	await nextTick();
 	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
 });
@@ -222,9 +239,12 @@ watch(chatList, async () => {
 		<div class="header">
 			<p class="d-flex align-center mt-4 ml-4 mb-4">{{ userName }}さん</p>
 			<div class="d-flex align-center mt-4 mb-4">
-				<select class="select" name="messageType" id="message-type-select">
-					<option value="important">重要</option>
+				<label for="view-important">重要</label>
+				<input type="checkbox" id="view-important" v-model="viewImportantStatus" />
+				<select class="select" name="messageType" id="message-type-select" v-model="selectedStatus">
 					<option value="all">全て</option>
+					<option value="message">投稿</option>
+					<option value="memo">メモ</option>
 				</select>
 				<router-link to="/" class="link">
 					<button
@@ -238,8 +258,8 @@ watch(chatList, async () => {
 			</div>
 		</div>
 		<div class="message-area">
-			<div class="mt-5" v-if="chatList.length !== 0">
-				<div class="item mt-4" v-for="(chat, i) in chatList" :key="i">
+			<div class="mt-5" v-if="filteredChatList.length !== 0">
+				<div class="item mt-4" v-for="(chat, i) in filteredChatList" :key="i">
 					<strong>
 						<template v-if="chat.dataType === 'message'"
 							>{{ chat.userName }} さん</template
@@ -315,6 +335,7 @@ watch(chatList, async () => {
 	background-color: #ffffff;
 	padding: 8px;
 }
+
 .select {
 	margin-right: 4px;
 	font-size: 0.9rem;
