@@ -1,7 +1,7 @@
 <script setup>
-import { inject, ref, reactive, onMounted, watch, nextTick } from "vue";
-import socketManager from "../socketManager.js";
+import { inject, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { supabase } from "../lib/supabaseClient";
+import socketManager from "../socketManager.js";
 
 // #region global state
 const userName = inject("userName");
@@ -215,6 +215,8 @@ watch(chatList, async () => {
 	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
 });
 // #endregion
+
+const is_sort_reverse = ref(false)
 </script>
 
 <template>
@@ -222,16 +224,14 @@ watch(chatList, async () => {
 		<div class="header">
 			<p class="d-flex align-center mt-4 ml-4 mb-4">{{ userName }}さん</p>
 			<div class="d-flex align-center mt-4 mb-4">
+				<v-switch class="mt-5 mr-4" label="ソート" v-model="is_sort_reverse"></v-switch>
+
 				<select class="select" name="messageType" id="message-type-select">
 					<option value="important">重要</option>
 					<option value="all">全て</option>
 				</select>
 				<router-link to="/" class="link">
-					<button
-						type="button"
-						class="button-normal button-exit"
-						@click="onExit"
-					>
+					<button type="button" class="button-normal button-exit" @click="onExit">
 						退室する
 					</button>
 				</router-link>
@@ -239,15 +239,10 @@ watch(chatList, async () => {
 		</div>
 		<div class="message-area">
 			<div class="mt-5" v-if="chatList.length !== 0">
-				<div class="item mt-4" v-for="(chat, i) in chatList" :key="i">
-					<strong>
-						<template v-if="chat.dataType === 'message'"
-							>{{ chat.userName }} さん</template
-						>
-						<template
-							v-else-if="chat.dataType === 'enter' || chat.dataType === 'exit'"
-							>⚙️システム</template
-						>
+				<div class="item mt-4" v-for="chat in is_sort_reverse ? chatList.slice().reverse() : chatList"
+					:key="chat.id"> <strong>
+						<template v-if="chat.dataType === 'message'">{{ chat.userName }} さん</template>
+						<template v-else-if="chat.dataType === 'enter' || chat.dataType === 'exit'">⚙️システム</template>
 						<template v-else>📝メモ</template>
 					</strong>
 					<small class="util-ml-8px">{{ chat.publishTime }}</small>
@@ -258,14 +253,8 @@ watch(chatList, async () => {
 			</div>
 		</div>
 		<div class="footer">
-			<textarea
-				variant="outlined"
-				placeholder="投稿文を入力してください"
-				rows="4"
-				v-model="chatContent"
-				class="area"
-				@keydown="handleChatContentKeydown"
-			></textarea>
+			<textarea variant="outlined" placeholder="投稿文を入力してください" rows="4" v-model="chatContent" class="area"
+				@keydown="handleChatContentKeydown"></textarea>
 			<div class="bottun-wrapper">
 				<button @click="onMemo" class="mb-1 ml-3 button-normal">メモ</button>
 				<button @click="onPublish" class="mt-1 ml-3 button-normal">投稿</button>
@@ -285,6 +274,7 @@ watch(chatList, async () => {
 	left: 0;
 	background-color: #ff9a07;
 }
+
 .footer {
 	display: flex;
 	justify-content: center;
@@ -296,15 +286,18 @@ watch(chatList, async () => {
 	height: 150px;
 	background-color: #ff9a07;
 }
+
 .message-area {
 	margin: 50px 0 150px 0;
 }
+
 .bottun-wrapper {
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
 }
+
 .link {
 	text-decoration: none;
 }
@@ -315,6 +308,7 @@ watch(chatList, async () => {
 	background-color: #ffffff;
 	padding: 8px;
 }
+
 .select {
 	margin-right: 4px;
 	font-size: 0.9rem;
@@ -324,10 +318,12 @@ watch(chatList, async () => {
 	border: 1px solid #000;
 	background-color: #ffffff;
 }
+
 .item {
 	display: block;
 	white-space: pre-wrap;
 }
+
 .util-ml-8px {
 	margin-left: 8px;
 }
