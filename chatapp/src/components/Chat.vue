@@ -164,9 +164,14 @@ const startEditing = (chat) => {
 
 // 編集を完了する関数
 const finishEditing = () => {
-	if (!editingChat.value) return; // 編集中のチャットがない場合は何もしない
+	if (!editingChat.value || editingChat.value.context.trim() === "") return; // 編集中のチャットがない場合は何もしない
 	// 編集内容をデータベースに更新
 	const originalChat = chatList.find(chat => chat.uid === editingChat.value.uid);
+	// 編集中のチャットに変更がなければ何もしない
+	if (!originalChat || originalChat.context === editingChat.value.context) {
+		cancelEditing(); // 編集をキャンセル
+		return;
+	}
 	if (originalChat) {
 		originalChat.context = editingChat.value.context + " (編集済み)";
 		originalChat.isPinned = editingChat.value.isPinned;
