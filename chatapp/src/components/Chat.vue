@@ -1,5 +1,5 @@
 <script setup>
-import { inject, ref, reactive, onMounted } from "vue";
+import { inject, ref, reactive, onMounted, watch, nextTick } from "vue";
 import socketManager from "../socketManager.js";
 
 // #region global state
@@ -61,10 +61,10 @@ const onMemo = () => {
 // 投稿メッセージ入力欄でEnterキーが押されたときの処理
 // Ctrl + Enter または Command + Enter で投稿
 const handleChatContentKeydown = (event) => {
-if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-	event.preventDefault(); // Enterキーのデフォルト動作を防ぐ
-	// 投稿メッセージをサーバに送信
-	onPublish();
+	if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+		event.preventDefault(); // Enterキーのデフォルト動作を防ぐ
+		// 投稿メッセージをサーバに送信
+		onPublish();
 	}
 };
 // #endregion
@@ -106,14 +106,21 @@ const registerSocketEvent = () => {
 		onReceivePublish(data);
 	});
 };
+
+// 自動で下までスクロールする機能
+const bottomMarker = ref(null);
+watch(chatList, async () => {
+	await nextTick();
+	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+});
 // #endregion
 </script>
 
 <template>
 	<div class="mx-auto my-5 px-4">
 		<div class="header">
-			<p class="d-flex align-center mt-4 ml-4">{{ userName }}さん</p>
-			<div class="d-flex align-center mt-4">
+			<p class="d-flex align-center mt-4 ml-4 mb-4">{{ userName }}さん</p>
+			<div class="d-flex align-center mt-4 mb-4">
 				<select class="select" name="messageType" id="message-type-select">
 					<option value="important">重要</option>
 					<option value="all">全て</option>
@@ -131,14 +138,13 @@ const registerSocketEvent = () => {
 		</div>
 		<div class="message-area">
 			<div class="mt-5" v-if="chatList.length !== 0">
-				<ul>
-					<li class="item mt-4" v-for="(chat, i) in chatList" :key="i">
-						{{ chat }}
-					</li>
-				</ul>
+				<div class="item mt-4" v-for="(chat, i) in chatList" :key="i">
+					{{ chat }}
+				</div>
+				<div ref="bottomMarker"></div>
 			</div>
 		</div>
-		<div class="mt-10 footer">
+		<div class="footer">
 			<textarea
 				variant="outlined"
 				placeholder="投稿文を入力してください"
@@ -160,9 +166,11 @@ const registerSocketEvent = () => {
 	display: flex;
 	justify-content: space-between;
 	width: 100%;
+	height: 50px;
 	position: fixed;
 	top: 0;
 	left: 0;
+	background-color: #ff9a07;
 }
 .footer {
 	display: flex;
@@ -172,8 +180,12 @@ const registerSocketEvent = () => {
 	bottom: 0;
 	left: 0;
 	padding: 15px 0;
+	height: 150px;
+	background-color: #ff9a07;
 }
-
+.message-area {
+	margin: 50px 0 150px 0;
+}
 .bottun-wrapper {
 	display: flex;
 	flex-direction: column;
@@ -201,7 +213,7 @@ const registerSocketEvent = () => {
 }
 .item {
 	display: block;
-	white-space: pre-wrap; 
+	white-space: pre-wrap;
 }
 .util-ml-8px {
 	margin-left: 8px;
