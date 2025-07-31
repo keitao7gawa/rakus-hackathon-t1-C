@@ -1,5 +1,13 @@
 <script setup>
-import { inject, ref, reactive, onMounted, watch, nextTick, computed } from "vue";
+import {
+	inject,
+	ref,
+	reactive,
+	onMounted,
+	watch,
+	nextTick,
+	computed,
+} from "vue";
 import socketManager from "../socketManager.js";
 import { supabase } from "../lib/supabaseClient";
 
@@ -15,7 +23,7 @@ const socket = socketManager.getInstance();
 const chatContent = ref("");
 const chatList = reactive([]);
 const viewImportantStatus = ref(true);
-const selectedStatus = ref("all"); 
+const selectedStatus = ref("all");
 const is_pin = ref(false);
 // #endregion
 
@@ -102,7 +110,7 @@ const filteredChatList = computed(() => {
 	if (viewImportantStatus.value) {
 		return tempChatList.filter((chat) => chat.isPinned); // 重要なメッセージのみ表示
 	} else {
-		return tempChatList; 
+		return tempChatList;
 	}
 });
 
@@ -234,36 +242,66 @@ watch(filteredChatList, async () => {
 });
 // #endregion
 
-const is_sort_reverse = ref(false)
+const is_sort_reverse = ref(false);
 </script>
 
 <template>
 	<div class="mx-auto my-5 px-4">
 		<div class="header">
-			<p class="d-flex align-center mt-4 ml-4 mb-4">{{ userName }}さん</p>
-			<div class="d-flex align-center mt-4 mb-4">
-				<v-switch color="#7CB5BE" hide-details="auto" class="mr-4" label="ソート"
-					v-model="is_sort_reverse"></v-switch>
-				<v-switch hide-details="auto" id="view-important" v-model="viewImportantStatus" label="重要" color="#7CB5BE"/>
+			<p class="d-flex align-center pt-1 pl-1 pb-1 font-weight-bold">
+				{{ userName }}さん
+			</p>
+			<div class="d-flex align-center filter-wrapper">
+				<v-switch
+					color="#7CB5BE"
+					hide-details="auto"
+					class="mr-4"
+					label="ソート"
+					v-model="is_sort_reverse"
+				></v-switch>
+				<v-switch
+					hide-details="auto"
+					id="view-important"
+					class="mr-4"
+					v-model="viewImportantStatus"
+					label="重要"
+					color="#7CB5BE"
+				/>
 
-				<select class="select" name="messageType" id="message-type-select" v-model="selectedStatus">
+				<select
+					class="select"
+					name="messageType"
+					id="message-type-select"
+					v-model="selectedStatus"
+				>
 					<option value="all">全て</option>
 					<option value="message">投稿</option>
 					<option value="memo">メモ</option>
 				</select>
-				<router-link to="/" class="link">
-					<button type="button" class="button-normal button-exit" @click="onExit">
-						退室する
-					</button>
-				</router-link>
 			</div>
+			<router-link to="/" class="link">
+				<button type="button" class="button-normal button-exit" @click="onExit">
+					退室
+				</button>
+			</router-link>
 		</div>
 		<div class="message-area">
 			<div class="mt-5" v-if="filteredChatList.length !== 0">
-				<div class="item mt-4" v-for="chat in is_sort_reverse ? filteredChatList.slice().reverse() : filteredChatList"
-					:key="chat.id"> <strong>
-						<template v-if="chat.dataType === 'message'">{{ chat.userName }} さん</template>
-						<template v-else-if="chat.dataType === 'enter' || chat.dataType === 'exit'">⚙️システム</template>
+				<div
+					class="item mt-4"
+					v-for="chat in is_sort_reverse
+						? filteredChatList.slice().reverse()
+						: filteredChatList"
+					:key="chat.id"
+				>
+					<strong>
+						<template v-if="chat.dataType === 'message'"
+							>{{ chat.userName }} さん</template
+						>
+						<template
+							v-else-if="chat.dataType === 'enter' || chat.dataType === 'exit'"
+							>⚙️システム</template
+						>
 						<template v-else>📝メモ</template>
 					</strong>
 					<small class="util-ml-8px">{{ chat.publishTime }}</small>
@@ -274,8 +312,14 @@ const is_sort_reverse = ref(false)
 			</div>
 		</div>
 		<div class="footer">
-			<textarea variant="outlined" placeholder="投稿文を入力してください" rows="4" v-model="chatContent" class="area"
-				@keydown="handleChatContentKeydown"></textarea>
+			<textarea
+				variant="outlined"
+				placeholder="投稿文を入力してください"
+				rows="4"
+				v-model="chatContent"
+				class="area"
+				@keydown="handleChatContentKeydown"
+			></textarea>
 			<div class="bottun-wrapper">
 				<button @click="onMemo" class="mb-1 ml-3 button-normal">メモ</button>
 				<button @click="onPublish" class="mt-1 ml-3 button-normal">投稿</button>
@@ -300,13 +344,36 @@ const is_sort_reverse = ref(false)
 	display: flex;
 	justify-content: space-between;
 	width: 100%;
-	height: 50px;
 	position: fixed;
 	top: 0;
 	left: 0;
 	background-color: #ff9a07;
 }
-
+@media screen and (min-width: 500px) {
+	.header {
+		height: 50px;
+	}
+	.filter-wrapper {
+		margin-right: 80px;
+	}
+	.link {
+		top: 9px;
+		right: 0;
+	}
+}
+@media screen and (max-width: 500px) {
+	.header {
+		flex-direction: column;
+		height: 80px;
+	}
+	.filter-wrapper {
+		justify-content: center;
+	}
+	.link {
+		top: 4px;
+		right: 0;
+	}
+}
 .footer {
 	display: flex;
 	justify-content: center;
@@ -333,6 +400,7 @@ const is_sort_reverse = ref(false)
 
 .link {
 	text-decoration: none;
+	position: fixed;
 }
 
 .area {
@@ -342,7 +410,6 @@ const is_sort_reverse = ref(false)
 	padding: 8px;
 	margin-right: 4px;
 }
-
 
 .select {
 	margin-right: 4px;
