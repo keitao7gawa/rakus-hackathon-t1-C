@@ -1,5 +1,13 @@
 <script setup>
-import { inject, ref, reactive, onMounted, watch, nextTick } from "vue";
+import {
+	inject,
+	ref,
+	reactive,
+	onMounted,
+	watch,
+	nextTick,
+	computed,
+} from "vue";
 import socketManager from "../socketManager.js";
 import { supabase } from "../lib/supabaseClient";
 
@@ -14,6 +22,11 @@ const socket = socketManager.getInstance();
 // #region reactive variable
 const chatContent = ref("");
 const chatList = reactive([]);
+const isMenuInOpen = ref(false); // メニューの開閉状態を管理
+const currentChat = ref(null); // 編集中のチャットを保持
+const viewImportantStatus = ref(true);
+const selectedStatus = ref("all");
+const is_pin = ref(false);
 // #endregion
 
 // #region lifecycle
@@ -24,9 +37,6 @@ onMounted(() => {
 	fetchMessageTable();
 	// ソケットイベントを登録
 	registerSocketEvent();
-
-	//デバッグ用に削除イベントを実行
-	onDelete('0793cfea-fd86-45d3-8ba0-a03b26f670de');
 });
 
 // DBからメッセージを取得してchatListを更新する
@@ -100,9 +110,25 @@ const deleteMessageTable = async (uid) => {
 	}
 }
 
-// メッセージをデータベース MessageTable から取得し， messagesTableを更新する
-
 // #endregion
+
+const filteredChatList = computed(() => {
+	const tempChatList = chatList.filter((chat) => {
+		if (selectedStatus.value === "all") {
+			return true; // 全てのメッセージを表示
+		} else if (selectedStatus.value === "memo") {
+			return chat.dataType === "memo"; // メモのみ表示
+		} else if (selectedStatus.value === "message") {
+			return chat.dataType === "message"; // 投稿のみ表示
+		}
+		return false;
+	});
+	if (viewImportantStatus.value) {
+		return tempChatList.filter((chat) => chat.isPinned); // 重要なメッセージのみ表示
+	} else {
+		return tempChatList;
+	}
+});
 
 // #region browser event handler
 // 投稿メッセージをサーバに送信する
@@ -119,7 +145,7 @@ const onPublish = () => {
 		publishTime: new Date().toLocaleString(),
 		dataType: "message",
 		uid: crypto.randomUUID(),
-		isPinned: false,
+		isPinned: is_pin.value,
 	};
 	// メッセージをデータベースに挿入
 	insertMessageTable(newChat);
@@ -129,16 +155,19 @@ const onPublish = () => {
 	socket.emit("publishEvent", newChat);
 };
 
-// 削除したことをサーバーに送信する
-const onDelete = (uid) => { // uidによって削除する処理を以下で行う
-	socket.emit("deleteEvent", uid);
-	deleteMessageTable(uid);
-}
-
-// 退室メッセージをサーバに送信する（削除ボタンを設定する）
+// 退室メッセージをサーバに送信する
 const onExit = () => {
 	socket.emit("exitEvent", userName.value);
 };
+
+// 削除したことをサーバーに送信する
+const onDelete = (uid, name) => { // uidによって削除する処理を以下で行う
+	if (name !== userName.value) return;
+	console.log("onDelete");
+
+	socket.emit("deleteEvent", uid);
+	deleteMessageTable(uid);
+}
 
 // メモを画面上に表示する
 const onMemo = () => {
@@ -154,7 +183,7 @@ const onMemo = () => {
 		publishTime: new Date().toLocaleString(),
 		dataType: "memo",
 		uid: crypto.randomUUID(),
-		isPinned: false,
+		isPinned: is_pin.value,
 	};
 	// メモをデータベースに挿入
 	insertMessageTable(newChat);
@@ -209,17 +238,18 @@ const onReceiveExit = (data) => {
 const onReceivePublish = (data) => {
 	chatList.push(data);
 };
-// #endregion
 
 // サーバーから受信した削除通知を受け取り、メッセージなどを削除する
 const onReceiveDelete = (uid) => {
 	// chatListを走査して、uidが一致したものを削除する処理
-	chatList.forEach(chat => {
-		if (chat.uid === uid) {
-			console.log(uid);
-		}
-	});
+
+	const indexToDelete = chatList.findIndex(chat => chat.uid === uid);
+
+	if (indexToDelete !== -1) {
+        chatList.splice(indexToDelete, 1);
+    }
 }
+// #endregion
 
 // #region local methods
 // イベント登録をまとめる
@@ -247,37 +277,100 @@ const registerSocketEvent = () => {
 
 // 自動で下までスクロールする機能
 const bottomMarker = ref(null);
-watch(chatList, async () => {
+watch(filteredChatList, async () => {
 	await nextTick();
 	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
 });
+
+const getChatClass = (chat) => {
+	if (chat.dataType === "memo") {
+		return "memo-bgcolor";
+	} 
+	else if (chat.dataType === "enter" || chat.dataType === "exit") {
+		return "system-bgcolor";
+	} 
+	else if (chat.userName === userName.value){
+		return "my-bgcolor";
+	} else {
+		return "other-bgcolor";
+	}
+};
 // #endregion
+
+const is_sort_reverse = ref(false);
 </script>
 
 <template>
 	<div class="mx-auto my-5 px-4">
 		<div class="header">
-			<p class="d-flex align-center mt-4 ml-4 mb-4">{{ userName }}さん</p>
-			<div class="d-flex align-center mt-4 mb-4">
-				<select class="select" name="messageType" id="message-type-select">
-					<option value="important">重要</option>
+			<p class="d-flex align-center pt-1 pl-1 pb-1 font-weight-bold">
+				{{ userName }}さん
+			</p>
+			<div class="d-flex align-center filter-wrapper">
+				<v-switch
+					color="#7CB5BE"
+					hide-details="auto"
+					class="mr-4"
+					label="ソート"
+					v-model="is_sort_reverse"
+				></v-switch>
+				<v-switch
+					hide-details="auto"
+					id="view-important"
+					class="mr-4"
+					v-model="viewImportantStatus"
+					label="重要"
+					color="#7CB5BE"
+				/>
+
+				<select
+					class="select"
+					name="messageType"
+					id="message-type-select"
+					v-model="selectedStatus"
+				>
 					<option value="all">全て</option>
+					<option value="message">投稿</option>
+					<option value="memo">メモ</option>
 				</select>
-				<router-link to="/" class="link">
-					<button
-						type="button"
-						class="button-normal button-exit"
-						@click="onExit"
-					>
-						退室する
-					</button>
-				</router-link>
 			</div>
+			<router-link to="/" class="link">
+				<button type="button" class="button-normal button-exit" @click="onExit">
+					退室
+				</button>
+			</router-link>
 		</div>
 		<div class="message-area">
-			<div class="mt-5" v-if="chatList.length !== 0">
-				<div class="item mt-4" v-for="(chat, i) in chatList" :key="i">
-					<strong>
+			<div class="mt-5" v-if="filteredChatList.length !== 0">
+				<div 
+					class="item mt-4 p-2"
+						v-for="chat in is_sort_reverse
+						? filteredChatList.slice().reverse()
+						: filteredChatList"
+					:key="chat.id"
+					:class="[chat.isPinned ? 'important-frame' : 'frame', getChatClass(chat)]"
+				>
+					
+					<div v-if="chat.userName === userName" class="menu-container">
+						<button class="three-dot-leader" type="button" @click="isMenuInOpen = !isMenuInOpen; currentChat = chat.uid">
+							<span class="dot"></span>
+						</button>				
+						<div v-if="isMenuInOpen && currentChat === chat.uid" class="mini-menu">
+								<button class="button-normal">編集</button>
+								<button @click="onDelete(chat.uid, chat.userName)" class="button-normal">削除</button>
+								<v-switch
+									hide-details="auto"
+									label="重要"
+									class="pin_font"
+									v-model="chat.isPinned"
+									color="#7CB5BE"
+									@click="() => console.log('重要なメッセージに設定しました')"
+								></v-switch>
+						</div>
+					</div>
+					
+					<div class="message-header">
+						<strong>
 						<template v-if="chat.dataType === 'message'"
 							>{{ chat.userName }} さん</template
 						>
@@ -288,8 +381,11 @@ watch(chatList, async () => {
 						<template v-else>📝メモ</template>
 					</strong>
 					<small class="util-ml-8px">{{ chat.publishTime }}</small>
-					<br />
-					{{ chat.context }}
+					</div>
+					
+					<div class="message-content">
+							{{ chat.context }}
+					</div>
 				</div>
 				<div ref="bottomMarker"></div>
 			</div>
@@ -306,21 +402,57 @@ watch(chatList, async () => {
 			<div class="bottun-wrapper">
 				<button @click="onMemo" class="mb-1 ml-3 button-normal">メモ</button>
 				<button @click="onPublish" class="mt-1 ml-3 button-normal">投稿</button>
+				<v-switch
+					hide-details="auto"
+					label="重要"
+					class="pin_font"
+					v-model="is_pin"
+					color="#7CB5BE"
+				></v-switch>
 			</div>
 		</div>
 	</div>
 </template>
 
 <style scoped>
+.pin_font {
+	color: #000000;
+	font-weight: bold;
+}
 .header {
 	display: flex;
 	justify-content: space-between;
 	width: 100%;
-	height: 50px;
 	position: fixed;
 	top: 0;
 	left: 0;
 	background-color: #ff9a07;
+	z-index: 999; /* ヘッダーを前面に表示 */
+}
+@media screen and (min-width: 500px) {
+	.header {
+		height: 50px;
+	}
+	.filter-wrapper {
+		margin-right: 80px;
+	}
+	.link {
+		top: 9px;
+		right: 0;
+	}
+}
+@media screen and (max-width: 500px) {
+	.header {
+		flex-direction: column;
+		height: 80px;
+	}
+	.filter-wrapper {
+		justify-content: center;
+	}
+	.link {
+		top: 4px;
+		right: 0;
+	}
 }
 .footer {
 	display: flex;
@@ -333,17 +465,23 @@ watch(chatList, async () => {
 	height: 150px;
 	background-color: #ff9a07;
 }
+
 .message-area {
 	margin: 50px 0 150px 0;
+	width: 100%;
 }
+
 .bottun-wrapper {
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
 	align-items: center;
+	margin-left: 4px;
 }
+
 .link {
 	text-decoration: none;
+	position: fixed;
 }
 
 .area {
@@ -351,7 +489,9 @@ watch(chatList, async () => {
 	border: 1px solid #000;
 	background-color: #ffffff;
 	padding: 8px;
+	margin-right: 4px;
 }
+
 .select {
 	margin-right: 4px;
 	font-size: 0.9rem;
@@ -361,10 +501,42 @@ watch(chatList, async () => {
 	border: 1px solid #000;
 	background-color: #ffffff;
 }
+
 .item {
 	display: block;
 	white-space: pre-wrap;
+	word-wrap: break-word; /* 長い単語を強制的に折り返す */
+	word-break: break-all; /* 日本語や英語の長い文字列を折り返す */
+	overflow-wrap: break-word; /* 現代的な折り返し指定 */
+	max-width: 100%; /* 親要素の幅を超えないようにする */
+	box-sizing: border-box; /* padding, borderを含めた幅計算 */
+	padding: 8px; /* 内側の余白 */
+	position: relative; /* ドットの位置を相対的にするため */
+	margin-bottom: 10px;
 }
+
+.important-frame{
+	border: #7cb5be solid 4px;
+}
+
+.frame{
+	border: #000 solid 1px;
+}
+
+.my-bgcolor{
+	background-color: #D9E9E8;
+}
+
+.other-bgcolor{
+	background-color: #fff;
+}
+.memo-bgcolor {
+	background-color: #d5d5d5;
+}
+.system-bgcolor {
+	background-color: #FBE8D6;
+}
+
 .util-ml-8px {
 	margin-left: 8px;
 }
@@ -372,5 +544,78 @@ watch(chatList, async () => {
 .button-exit {
 	color: #000;
 	margin: 0 4px;
+}
+
+.message-header {
+	margin-bottom: 8px;
+}
+
+.message-content {
+	margin-top: 4px;
+}
+
+.three-dot-leader {
+	cursor: pointer;
+	border: none;
+	background: none;
+	position: absolute; /* 絶対位置指定 */
+	top: 8px; /* 上から8px */
+	right: 8px; /* 右から8px */
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	/* z-index: 1;  */
+}
+
+.three-dot-leader .dot,
+.three-dot-leader .dot::before,
+.three-dot-leader .dot::after {
+  display: block;
+  position: absolute;
+	border-radius: 50%;
+	width: 3px; /* ドットを少し大きく */
+	height: 3px;
+	background-color: #666;
+}
+
+.three-dot-leader .dot {
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+
+.three-dot-leader .dot::before, .three-dot-leader .dot::after {
+  content: '';
+}
+
+.three-dot-leader .dot::before {
+  /* 上側ドットの位置 */
+  top: -6px;
+}
+
+.three-dot-leader .dot::after {
+  /* 下側ドットの位置 */
+  top: 6px;
+}
+
+.menu-container {
+	top : 100%; /* ボタンのすぐ下に表示 */
+	right: 0; /* 右端に配置 */
+	z-index: 2; 
+}
+
+.mini-menu {
+  position: absolute;
+  top: -10px;
+  right: -110px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  list-style: none;
+  margin-top: 4px;
+	display: flex;
+	flex-direction: column;
 }
 </style>
