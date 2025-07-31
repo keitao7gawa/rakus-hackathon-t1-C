@@ -190,8 +190,8 @@ const registerSocketEvent = () => {
 }
 .item {
 	display: block;
+	white-space: pre-wrap; 
 }
-
 .util-ml-8px {
 	margin-left: 8px;
 }
