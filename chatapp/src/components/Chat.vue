@@ -29,7 +29,7 @@ const selectedStatus = ref("all");
 const is_pin = ref(false);
 const editingChat = ref(null); // 編集中のチャットを保持
 const isEditing = ref(false); // 編集モードの状態を管理
-const ifFilterChange = ref(false); // フィルターが変更されたかどうかを管理
+const isBottomMarkerVisible = ref(false); // buttomMarkerの状態を管理
 const is_sort_reverse = ref(false); // ソートの状態を管理
 const is_scrolled = ref(false);
 // #endregion
@@ -42,6 +42,8 @@ onMounted(() => {
 	fetchMessageTable();
 	// ソケットイベントを登録
 	registerSocketEvent();
+	
+	isBottomMarkerVisible.value = true; // 初期状態でスクロールするためのフラグを立てる
 });
 
 // DBからメッセージを取得してchatListを更新する
@@ -214,6 +216,7 @@ const onPublish = () => {
 	// メッセージをデータベースに挿入
 	insertMessageTable(newChat);
 	chatContent.value = "";
+	isBottomMarkerVisible.value = true; // 投稿後にスクロールするためのフラグを立てる
 
 	// 投稿メッセージをサーバに送信
 	socket.emit("publishEvent", newChat);
@@ -250,6 +253,9 @@ const onMemo = () => {
 		uid: crypto.randomUUID(),
 		isPinned: is_pin.value,
 	};
+	// 一番下にスクロールするためのフラグを立てる
+	isBottomMarkerVisible.value = true; // メモを追加した後にスクロール
+
 	// メモをデータベースに挿入
 	insertMessageTable(newChat);
 	// メモの内容をチャットリストに追加
@@ -353,14 +359,14 @@ const registerSocketEvent = () => {
 
 // 自動で下までスクロールする機能
 watch([selectedStatus, viewImportantStatus, is_sort_reverse], () =>{
-	ifFilterChange.value = true; // フィルターが変更された
+	isBottomMarkerVisible.value = true; // フィルターが変更された
 });
 const bottomMarker = ref(null);
 watch(filteredChatList, async () => {
-	if (ifFilterChange.value) {
+	if (isBottomMarkerVisible.value) {
 		await nextTick();
 		bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
-		ifFilterChange.value = false; // フィルター変更後のスクロールが完了したのでリセット
+		isBottomMarkerVisible.value = false; // フィルター変更後のスクロールが完了したのでリセット
 	}
 });
 
