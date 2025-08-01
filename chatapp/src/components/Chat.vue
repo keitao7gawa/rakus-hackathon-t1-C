@@ -479,19 +479,23 @@ onMounted(() => {
 							v-if="isMenuInOpen && currentChat === chat.uid"
 							class="mini-menu"
 						>
-							<button @click="startEditing(chat)" class="button-normal">
-								編集
-							</button>
-							<button
+							<div class="mini-menu-item">
+								<button @click="startEditing(chat)" class="button-normal">
+									編集
+								</button>
+							</div>
+							<div class="mini-menu-item">
+								<button
 								@click="onDelete(chat.uid, chat.userName)"
 								class="button-normal"
-							>
-								削除
-							</button>
+								>
+									削除
+								</button>
+							</div>
 							<v-switch
 								hide-details="auto"
 								label="重要"
-								class="pin_font"
+								class="pin_font mini-menu-item"
 								v-model="chat.isPinned"
 								color="#7CB5BE"
 								@click="() => console.log('重要なメッセージに設定しました')"
@@ -611,12 +615,6 @@ onMounted(() => {
 		top: 4px;
 		right: 0;
 	}
-	.scroll-down {
-		width: 33px;
-		height: 30px;
-		bottom: 160px;
-		right: 5px;
-	}
 }
 .footer {
 	display: flex;
@@ -690,12 +688,12 @@ onMounted(() => {
 	margin-bottom: 10px;
 }
 
-.important-frame {
-	border: #7cb5be solid 4px;
+.important-frame{
+	box-shadow: 0 0 0 4px #7cb5be;
 }
 
-.frame {
-	border: #000 solid 1px;
+.frame{
+	box-shadow: 0 0 0 1px #000;
 }
 
 .my-bgcolor {
@@ -781,18 +779,16 @@ onMounted(() => {
 }
 
 .mini-menu {
-	position: absolute;
-	top: -10px;
-	right: -110px;
-	border: 1px solid #ccc;
-	border-radius: 4px;
-	background-color: white;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-	padding: 8px;
-	list-style: none;
-	margin-top: 4px;
+  position: absolute;
+  top: 0px;
+  right: 30px;
+  border-radius: 4px;
+  background-color: white;
 	display: flex;
-	flex-direction: column;
+	align-items: center;
+  box-shadow: 0 2px 8px #bbbbbb;
+	padding: 0 4px;
+	height: 35px;
 }
 
 .scroll-down {
@@ -807,5 +803,14 @@ onMounted(() => {
 .scroll-down:hover {
 	background-color: #7cb5be;
 	box-shadow: 3px 3px 3px #707070;
+}
+
+@media screen and (max-width: 800px) {
+	.scroll-down {
+		width: 33px;
+		height: 30px;
+		bottom: 160px;
+		right: 5px;
+	}
 }
 </style>
