@@ -20,7 +20,6 @@ async function getMessages() {
     const { data, error } = await supabase.from('MessageTable').select() // 本来はここにSQLを書くべきではない
     if (error) throw error
     instruments.value = data
-    console.log('取得したデータ:', data) // 取得したデータを表示
   } catch (error) {
     console.error('データの取得エラー:', error.message)
   }
