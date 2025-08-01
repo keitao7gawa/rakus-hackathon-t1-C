@@ -29,6 +29,8 @@ const selectedStatus = ref("all");
 const is_pin = ref(false);
 const editingChat = ref(null); // 編集中のチャットを保持
 const isEditing = ref(false); // 編集モードの状態を管理
+const ifFilterChange = ref(false); // フィルターが変更されたかどうかを管理
+const is_sort_reverse = ref(false); // ソートの状態を管理
 const is_scrolled = ref(false);
 // #endregion
 
@@ -165,11 +167,16 @@ const startEditing = (chat) => {
 
 // 編集を完了する関数
 const finishEditing = () => {
-	if (!editingChat.value) return; // 編集中のチャットがない場合は何もしない
+	if (!editingChat.value || editingChat.value.context.trim() === "") return; // 編集中のチャットがない場合は何もしない
 	// 編集内容をデータベースに更新
 	const originalChat = chatList.find(
 		(chat) => chat.uid === editingChat.value.uid
 	);
+	// 編集中のチャットに変更がなければ何もしない
+	if (!originalChat || originalChat.context === editingChat.value.context) {
+		cancelEditing(); // 編集をキャンセル
+		return;
+	}
 	if (originalChat) {
 		originalChat.context = editingChat.value.context + " (編集済み)";
 		originalChat.isPinned = editingChat.value.isPinned;
@@ -345,10 +352,16 @@ const registerSocketEvent = () => {
 };
 
 // 自動で下までスクロールする機能
+watch([selectedStatus, viewImportantStatus, is_sort_reverse], () =>{
+	ifFilterChange.value = true; // フィルターが変更された
+});
 const bottomMarker = ref(null);
 watch(filteredChatList, async () => {
-	await nextTick();
-	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+	if (ifFilterChange.value) {
+		await nextTick();
+		bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+		ifFilterChange.value = false; // フィルター変更後のスクロールが完了したのでリセット
+	}
 });
 
 const getChatClass = (chat) => {
@@ -394,7 +407,7 @@ onMounted(() => {
 
 // #endregion
 
-const is_sort_reverse = ref(false);
+
 </script>
 
 <template>
@@ -513,9 +526,9 @@ const is_sort_reverse = ref(false);
 							v-model="editingChat.context"
 							placeholder="編集内容を入力"
 							rows="2"
-							class="area"
+							class="edit-area"
 						></textarea>
-						<div class="bottun-wrapper">
+						<div class="edit-buttons">
 							<button @click="finishEditing" class="mb-1 ml-3 button-normal">
 								更新
 							</button>
@@ -642,7 +655,18 @@ const is_sort_reverse = ref(false);
 	padding: 8px;
 	margin-right: 4px;
 }
-
+.edit-area {
+	width: 90%;
+	border: 1px solid #000;
+	background-color: #ffffff;
+	padding: 8px;
+	margin-right: 4px;
+}
+.edit-buttons {
+	display: flex;
+	justify-content: center;
+	margin-top: 10px;
+}
 .select {
 	margin-right: 4px;
 	font-size: 0.9rem;
