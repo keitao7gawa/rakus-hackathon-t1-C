@@ -615,12 +615,6 @@ onMounted(() => {
 		top: 4px;
 		right: 0;
 	}
-	.scroll-down {
-		width: 33px;
-		height: 30px;
-		bottom: 160px;
-		right: 5px;
-	}
 }
 .footer {
 	display: flex;
@@ -809,5 +803,14 @@ onMounted(() => {
 .scroll-down:hover {
 	background-color: #7cb5be;
 	box-shadow: 3px 3px 3px #707070;
+}
+
+@media screen and (max-width: 800px) {
+	.scroll-down {
+		width: 33px;
+		height: 30px;
+		bottom: 160px;
+		right: 5px;
+	}
 }
 </style>
