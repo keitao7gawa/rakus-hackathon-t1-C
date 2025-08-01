@@ -231,7 +231,6 @@ const onExit = () => {
 const onDelete = (uid, name) => {
 	// uidによって削除する処理を以下で行う
 	if (name !== userName.value) return;
-	console.log("onDelete");
 
 	socket.emit("deleteEvent", uid);
 	deleteMessageTable(uid);
@@ -263,6 +262,13 @@ const onMemo = () => {
 
 	// 入力欄を初期化
 	chatContent.value = "";
+};
+
+const onPinChange = (chat) => {
+	// デバック用
+	chat.isPinned = !chat.isPinned; // 重要フラグをトグル
+	updateMessageTable(chat); // データベースを更新
+	socket.emit("updateEvent", chat); // サーバに更新イベントを送信
 };
 
 // 投稿メッセージ入力欄でEnterキーが押されたときの処理
@@ -325,6 +331,7 @@ const onReceiveUpdate = (data) => {
 	const chatToUpdate = chatList.find((chat) => chat.uid === data.uid);
 	if (chatToUpdate) {
 		chatToUpdate.context = data.context;
+		chatToUpdate.isPinned = data.isPinned;
 	}
 };
 // #endregion
@@ -504,7 +511,7 @@ onMounted(() => {
 								class="pin_font mini-menu-item"
 								v-model="chat.isPinned"
 								color="#7CB5BE"
-								@click="() => console.log('重要なメッセージに設定しました')"
+								@click="onPinChange(chat)"
 							></v-switch>
 						</div>
 					</div>
