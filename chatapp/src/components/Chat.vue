@@ -29,6 +29,9 @@ const selectedStatus = ref("all");
 const is_pin = ref(false);
 const editingChat = ref(null); // 編集中のチャットを保持
 const isEditing = ref(false); // 編集モードの状態を管理
+const ifFilterChange = ref(false); // フィルターが変更されたかどうかを管理
+const is_sort_reverse = ref(false); // ソートの状態を管理
+const is_scrolled = ref(false);
 // #endregion
 
 // #region lifecycle
@@ -103,14 +106,14 @@ const insertMessageTable = async (chat) => {
 const deleteMessageTable = async (uid) => {
 	try {
 		const { error } = await supabase
-		.from("MessageTable")
-		.delete() // レコード（行）を削除
-		.eq('uid', uid)
-	} catch(error) {
+			.from("MessageTable")
+			.delete() // レコード（行）を削除
+			.eq("uid", uid);
+	} catch (error) {
 		alert("メッセージの削除に失敗しました: " + error.message);
 		return;
 	}
-}
+};
 
 // MessageTableのレコードを更新するための関数
 const updateMessageTable = async (chat) => {
@@ -164,9 +167,16 @@ const startEditing = (chat) => {
 
 // 編集を完了する関数
 const finishEditing = () => {
-	if (!editingChat.value) return; // 編集中のチャットがない場合は何もしない
+	if (!editingChat.value || editingChat.value.context.trim() === "") return; // 編集中のチャットがない場合は何もしない
 	// 編集内容をデータベースに更新
-	const originalChat = chatList.find(chat => chat.uid === editingChat.value.uid);
+	const originalChat = chatList.find(
+		(chat) => chat.uid === editingChat.value.uid
+	);
+	// 編集中のチャットに変更がなければ何もしない
+	if (!originalChat || originalChat.context === editingChat.value.context) {
+		cancelEditing(); // 編集をキャンセル
+		return;
+	}
 	if (originalChat) {
 		originalChat.context = editingChat.value.context + " (編集済み)";
 		originalChat.isPinned = editingChat.value.isPinned;
@@ -215,14 +225,14 @@ const onExit = () => {
 };
 
 // 削除したことをサーバーに送信する
-const onDelete = (uid, name) => { // uidによって削除する処理を以下で行う
+const onDelete = (uid, name) => {
+	// uidによって削除する処理を以下で行う
 	if (name !== userName.value) return;
 	console.log("onDelete");
 
 	socket.emit("deleteEvent", uid);
 	deleteMessageTable(uid);
-}
-
+};
 
 // メモを画面上に表示する
 const onMemo = () => {
@@ -298,15 +308,15 @@ const onReceivePublish = (data) => {
 const onReceiveDelete = (uid) => {
 	// chatListを走査して、uidが一致したものを削除する処理
 
-	const indexToDelete = chatList.findIndex(chat => chat.uid === uid);
+	const indexToDelete = chatList.findIndex((chat) => chat.uid === uid);
 
 	if (indexToDelete !== -1) {
-        chatList.splice(indexToDelete, 1);
-    }
-}
+		chatList.splice(indexToDelete, 1);
+	}
+};
 
 const onReceiveUpdate = (data) => {
-	const chatToUpdate = chatList.find(chat => chat.uid === data.uid);
+	const chatToUpdate = chatList.find((chat) => chat.uid === data.uid);
 	if (chatToUpdate) {
 		chatToUpdate.context = data.context;
 	}
@@ -334,7 +344,7 @@ const registerSocketEvent = () => {
 	// 削除イベントを受け取ったら実行
 	socket.on("deleteEvent", (uid) => {
 		onReceiveDelete(uid);
-	})
+	});
 
 	socket.on("updateEvent", (data) => {
 		onReceiveUpdate(data);
@@ -342,32 +352,67 @@ const registerSocketEvent = () => {
 };
 
 // 自動で下までスクロールする機能
+watch([selectedStatus, viewImportantStatus, is_sort_reverse], () =>{
+	ifFilterChange.value = true; // フィルターが変更された
+});
 const bottomMarker = ref(null);
 watch(filteredChatList, async () => {
-	await nextTick();
-	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+	if (ifFilterChange.value) {
+		await nextTick();
+		bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+		ifFilterChange.value = false; // フィルター変更後のスクロールが完了したのでリセット
+	}
 });
 
 const getChatClass = (chat) => {
 	if (chat.dataType === "memo") {
 		return "memo-bgcolor";
-	} 
-	else if (chat.dataType === "enter" || chat.dataType === "exit") {
+	} else if (chat.dataType === "enter" || chat.dataType === "exit") {
 		return "system-bgcolor";
-	} 
-	else if (chat.userName === userName.value){
+	} else if (chat.userName === userName.value) {
 		return "my-bgcolor";
 	} else {
 		return "other-bgcolor";
 	}
 };
+// 一番下までスクロールする関数
+const scrollDown = async () => {
+	await nextTick();
+	bottomMarker.value?.scrollIntoView({ behavior: "smooth" });
+};
+
+onMounted(() => {
+	nextTick(() => {
+		const observer = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((entry) => {
+					if (entry.isIntersecting) {
+						// 画面に要素が入ったときの処理
+						is_scrolled.value = false;
+					} else {
+						// 画面から要素が出たときの処理
+						is_scrolled.value = true;
+					}
+				});
+			},
+			{
+				threshold: 1.0,
+			}
+		);
+		if (bottomMarker.value) {
+			observer.observe(bottomMarker.value);
+		}
+	});
+});
+
 // #endregion
 
-const is_sort_reverse = ref(false);
+
 </script>
 
 <template>
 	<div class="mx-auto my-5 px-4">
+		<div v-if="is_scrolled" class="scroll-down" @click="scrollDown">↓</div>
 		<div class="header">
 			<p class="d-flex align-center pt-1 pl-1 pb-1 font-weight-bold">
 				{{ userName }}さん
@@ -408,67 +453,97 @@ const is_sort_reverse = ref(false);
 		</div>
 		<div class="message-area">
 			<div class="mt-5" v-if="filteredChatList.length !== 0">
-				<div 
+				<div
 					class="item mt-4 p-2"
-						v-for="chat in is_sort_reverse
+					v-for="chat in is_sort_reverse
 						? filteredChatList.slice().reverse()
 						: filteredChatList"
 					:key="chat.id"
-					:class="[chat.isPinned ? 'important-frame' : 'frame', getChatClass(chat)]"
+					:class="[
+						chat.isPinned ? 'important-frame' : 'frame',
+						getChatClass(chat),
+					]"
 				>
-					
 					<div v-if="chat.userName === userName" class="menu-container">
-						<button class="three-dot-leader" type="button"
-						@click="isMenuInOpen = !isMenuInOpen; currentChat = chat.uid">
+						<button
+							class="three-dot-leader"
+							type="button"
+							@click="
+								isMenuInOpen = !isMenuInOpen;
+								currentChat = chat.uid;
+							"
+						>
 							<span class="dot"></span>
-						</button>				
-						<div v-if="isMenuInOpen && currentChat === chat.uid" class="mini-menu">
-								<div class="mini-menu-item"><button @click="startEditing(chat)"class="button-normal">編集</button></div>
-								<div class="mini-menu-item"><button @click="onDelete(chat.uid, chat.userName)" class="button-normal">削除</button></div>
-								<v-switch
-									hide-details="auto"
-									label="重要"
-									class="pin_font mini-menu-item"
-									v-model="chat.isPinned"
-									color="#7CB5BE"
-									@click="() => console.log('重要なメッセージに設定しました')"
-								></v-switch>
+						</button>
+						<div
+							v-if="isMenuInOpen && currentChat === chat.uid"
+							class="mini-menu"
+						>
+							<div class="mini-menu-item">
+								<button @click="startEditing(chat)" class="button-normal">
+									編集
+								</button>
+							</div>
+							<div class="mini-menu-item">
+								<button
+								@click="onDelete(chat.uid, chat.userName)"
+								class="button-normal"
+								>
+									削除
+								</button>
+							</div>
+							<v-switch
+								hide-details="auto"
+								label="重要"
+								class="pin_font mini-menu-item"
+								v-model="chat.isPinned"
+								color="#7CB5BE"
+								@click="() => console.log('重要なメッセージに設定しました')"
+							></v-switch>
 						</div>
 					</div>
-					
+
 					<div class="message-header">
 						<strong>
-						<template v-if="chat.dataType === 'message'"
-							>{{ chat.userName }} さん</template
-						>
-						<template
-							v-else-if="chat.dataType === 'enter' || chat.dataType === 'exit'"
-							>⚙️システム</template
-						>
-						<template v-else>📝メモ</template>
-					</strong>
-					<small class="util-ml-8px">{{ chat.publishTime }}</small>
+							<template v-if="chat.dataType === 'message'"
+								>{{ chat.userName }} さん</template
+							>
+							<template
+								v-else-if="
+									chat.dataType === 'enter' || chat.dataType === 'exit'
+								"
+								>⚙️システム</template
+							>
+							<template v-else>📝メモ</template>
+						</strong>
+						<small class="util-ml-8px">{{ chat.publishTime }}</small>
 					</div>
-					
+
 					<div class="message-content">
-							{{ chat.context }}
+						{{ chat.context }}
 					</div>
-					<div v-if="isEditing && editingChat?.uid === chat.uid" class="edit-area">
+					<div
+						v-if="isEditing && editingChat?.uid === chat.uid"
+						class="edit-area"
+					>
 						<textarea
 							v-model="editingChat.context"
 							placeholder="編集内容を入力"
 							rows="2"
-							class="area"
+							class="edit-area"
 						></textarea>
-						<div class="bottun-wrapper">
-							<button @click="finishEditing" class="mb-1 ml-3 button-normal">更新</button>
-							<button @click="cancelEditing" class="mt-1 ml-3 button-normal">キャンセル</button>
+						<div class="edit-buttons">
+							<button @click="finishEditing" class="mb-1 ml-3 button-normal">
+								更新
+							</button>
+							<button @click="cancelEditing" class="mt-1 ml-3 button-normal">
+								キャンセル
+							</button>
 						</div>
 					</div>
-					<div ref="bottomMarker"></div>
 				</div>
-				<div ref="bottomMarker"></div>
 			</div>
+			<div ref="bottomMarker"></div>
 		</div>
 		<div class="footer">
 			<textarea
@@ -520,6 +595,13 @@ const is_sort_reverse = ref(false);
 		top: 9px;
 		right: 0;
 	}
+	.scroll-down {
+		width: 60px;
+		height: 60px;
+		bottom: 160px;
+		right: 25px;
+		font-size: large;
+	}
 }
 @media screen and (max-width: 500px) {
 	.header {
@@ -532,6 +614,12 @@ const is_sort_reverse = ref(false);
 	.link {
 		top: 4px;
 		right: 0;
+	}
+	.scroll-down {
+		width: 33px;
+		height: 30px;
+		bottom: 160px;
+		right: 5px;
 	}
 }
 .footer {
@@ -571,7 +659,18 @@ const is_sort_reverse = ref(false);
 	padding: 8px;
 	margin-right: 4px;
 }
-
+.edit-area {
+	width: 90%;
+	border: 1px solid #000;
+	background-color: #ffffff;
+	padding: 8px;
+	margin-right: 4px;
+}
+.edit-buttons {
+	display: flex;
+	justify-content: center;
+	margin-top: 10px;
+}
 .select {
 	margin-right: 4px;
 	font-size: 0.9rem;
@@ -603,18 +702,18 @@ const is_sort_reverse = ref(false);
 	box-shadow: 0 0 0 1px #000;
 }
 
-.my-bgcolor{
-	background-color: #D9E9E8;
+.my-bgcolor {
+	background-color: #d9e9e8;
 }
 
-.other-bgcolor{
+.other-bgcolor {
 	background-color: #fff;
 }
 .memo-bgcolor {
 	background-color: #d5d5d5;
 }
 .system-bgcolor {
-	background-color: #FBE8D6;
+	background-color: #fbe8d6;
 }
 
 .util-ml-8px {
@@ -650,8 +749,8 @@ const is_sort_reverse = ref(false);
 .three-dot-leader .dot,
 .three-dot-leader .dot::before,
 .three-dot-leader .dot::after {
-  display: block;
-  position: absolute;
+	display: block;
+	position: absolute;
 	border-radius: 50%;
 	width: 3px; /* ドットを少し大きく */
 	height: 3px;
@@ -664,24 +763,25 @@ const is_sort_reverse = ref(false);
 	transform: translate(-50%, -50%);
 }
 
-.three-dot-leader .dot::before, .three-dot-leader .dot::after {
-  content: '';
+.three-dot-leader .dot::before,
+.three-dot-leader .dot::after {
+	content: "";
 }
 
 .three-dot-leader .dot::before {
-  /* 上側ドットの位置 */
-  top: -6px;
+	/* 上側ドットの位置 */
+	top: -6px;
 }
 
 .three-dot-leader .dot::after {
-  /* 下側ドットの位置 */
-  top: 6px;
+	/* 下側ドットの位置 */
+	top: 6px;
 }
 
 .menu-container {
-	top : 100%; /* ボタンのすぐ下に表示 */
+	top: 100%; /* ボタンのすぐ下に表示 */
 	right: 0; /* 右端に配置 */
-	z-index: 2; 
+	z-index: 2;
 }
 
 .mini-menu {
@@ -697,9 +797,17 @@ const is_sort_reverse = ref(false);
 	height: 35px;
 }
 
-.mini-menu-item {
-	padding: 0 2px;
+.scroll-down {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	position: fixed;
+	background-color: #d9e9e8;
+	border: 1px solid #000;
 	cursor: pointer;
-	font-size: 0.9rem;
+}
+.scroll-down:hover {
+	background-color: #7cb5be;
+	box-shadow: 3px 3px 3px #707070;
 }
 </style>
