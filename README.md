@@ -1,5 +1,7 @@
-# hackathon-chatapp
-- RAKUS Tech Lab (3日間のインターン)にて，開発した「絶対投稿見させるチャット」である．
+# hackathon-chatapp：絶対投稿見させるチャット
+- RAKUS Tech Lab (3日間のインターン)にて，開発した．
+
+![chatapp-image](https://github.com/user-attachments/assets/f6c31722-7679-460e-911f-cda1584e407f)
 ### 背景
 - ペルソナ：RAKUS大学 学園祭実行委員会
 - 最重要課題：重要な情報を見逃してしまう，重要な情報がどこにあるわからない．
