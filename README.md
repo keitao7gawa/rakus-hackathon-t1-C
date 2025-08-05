@@ -20,11 +20,9 @@
   - Vite
   - Vue Router
   - Socket.IO Client
-  - Bootstrap 5
 
 - バックエンド
   - Node.js
-  - Express
   - Socket.IO
   - Supabase (PostgreSQL)
 ### 基本要件
